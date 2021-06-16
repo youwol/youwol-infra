@@ -10,6 +10,7 @@ from starlette.requests import Request
 from youwol_infra.context import Context
 from youwol_infra.deployment_models import Deployment
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
+from youwol_infra.routers.common import StatusBase, Sanity, install_package
 from youwol_infra.utils.k8s_utils import k8s_namespaces
 from youwol_infra.utils.utils import to_json_response
 from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
@@ -17,17 +18,7 @@ from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
 router = APIRouter()
 
 
-class Sanity(Enum):
-    SANE = "SANE",
-    WARNINGS = "WARNINGS",
-    BROKEN = "BROKEN",
-    PENDING = "PENDING"
-
-
-class Status(BaseModel):
-    installed: bool
-    sanity: Optional[Sanity]
-    pending: bool
+class Status(StatusBase):
     dashboardUrl: str
     accessToken: str
 
@@ -81,27 +72,11 @@ async def status(config: DynamicConfiguration = Depends(dynamic_config)):
 @router.get("/install", summary="trigger install of k8s dashboard component")
 async def install(request: Request, config: DynamicConfiguration = Depends(dynamic_config)):
 
-    context = Context(
-        request=request,
-        config=config,
-        web_socket=WebSocketsStore.logs
-        )
-    async with context.start(action="Install K8s dashboard") as ctx:
-        k8s_dashboard = K8sDashboard()
-        is_installed = await k8s_dashboard.is_installed()
-        if is_installed:
-            ctx.info(content="dashboard already installed")
-            return
-        resp = Status(
-            installed=is_installed,
-            sanity=Sanity.SANE if is_installed else None,
-            pending=True,
-            dashboardUrl=k8s_dashboard.dashboard_url(config.deployment_configuration.general.proxyPort),
-            accessToken=config.cluster_info.access_token
-            )
-        await WebSocketsStore.k8s_dashboard.send_json(to_json_response(resp))
-        try:
-            await k8s_dashboard.install()
-        finally:
-            await send_status(config)
+    package = K8sDashboard()
+    try:
+        await install_package(request=request, config=config, package=package,
+                              channel_ws=WebSocketsStore.k8s_dashboard)
+    finally:
+        await send_status(config)
+
 
