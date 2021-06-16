@@ -22,6 +22,7 @@ class Configuration:
     http_port: int
     base_path: str
     service_name: str = 'youwol-infra'
+    charts_folder: Path = Path.home() / 'Projects' / 'platform' / 'deployment' / 'charts'
 
 
 def assert_python():
