@@ -48,7 +48,7 @@ async def merge(*iterables):
 JSON = Union[str, int, float, bool, None, Mapping[str, 'JSON'], List['JSON']]
 
 
-def to_json_response(obj: BaseModel) -> JSON:
+def to_json_response(obj: Union[BaseModel, dict]) -> JSON:
 
     def to_camel_case(key: str):
         components = key.split('_')
@@ -67,7 +67,7 @@ def to_json_response(obj: BaseModel) -> JSON:
             return str(v)
         return v
 
-    base = obj.dict()
+    base = obj.dict() if isinstance(obj, BaseModel) else obj
     target = {}
 
     def to_json_rec(_obj: Any, target):
