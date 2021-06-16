@@ -5,6 +5,7 @@ async def configuration():
 
     return DeploymentConfiguration(
         general=General(
-            contextName="juju-context"
+            contextName="juju-context",
+            proxyPort=8002
             )
         )

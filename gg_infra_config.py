@@ -5,6 +5,7 @@ async def configuration():
 
     return DeploymentConfiguration(
         general=General(
-            contextName="gke_thematic-grove-252706_europe-west1_gc-tricot"
+            contextName="gke_thematic-grove-252706_europe-west1_gc-tricot",
+            proxyPort=8001
             )
         )

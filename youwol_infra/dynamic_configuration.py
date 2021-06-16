@@ -220,7 +220,7 @@ async def safe_load(path: Path, context: Optional[Context]) -> (DynamicConfigura
 
     return (
         DynamicConfiguration(config_filepath=path, deployment_configuration=k8s_config,
-                             cluster_info=get_cluster_info()),
+                             cluster_info=get_cluster_info(k8s_config)),
         get_status()
         )
 
@@ -232,7 +232,7 @@ def get_api_gateway_ip() -> Optional[str]:
     return None
 
 
-def get_cluster_info() -> Optional[ClusterInfo]:
+def get_cluster_info(k8s_config: DeploymentConfiguration) -> Optional[ClusterInfo]:
     access_token = k8s_access_token()
 
     try:
@@ -247,6 +247,7 @@ def get_cluster_info() -> Optional[ClusterInfo]:
     return ClusterInfo(
         nodes=nodes,
         access_token=access_token,
+        k8s_api_proxy=f"http://localhost:{k8s_config.general.proxyPort}",
         api_gateway_ip=api_gateway_ip
         )
 
