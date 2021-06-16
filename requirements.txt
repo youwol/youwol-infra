@@ -1,0 +1,12 @@
+kubernetes==17.17.0
+#fastapi==0.65.2 <= something is not working with this version when used with aiohttp.post(data=...bytes...)
+fastapi==0.65.1
+uvicorn==0.14.0
+python-multipart==0.0.5
+aiohttp==3.7.4.post0
+async==0.6.2
+websockets==9.1
+pydantic~=1.8.2
+PyYAML~=5.4.1
+starlette~=0.14.2
+urllib3~=1.26.5
