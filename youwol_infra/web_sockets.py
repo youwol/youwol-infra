@@ -10,7 +10,7 @@ class WebSocketsStore:
 
     environment: WebSocket
     logs: WebSocket
-    kong: WebSocket
+    k8s_dashboard: WebSocket
 
 
 async def start_web_socket(ws: WebSocket):
