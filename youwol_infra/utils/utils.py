@@ -6,8 +6,10 @@ from typing import Union, Mapping, List, Callable, Any
 
 from pydantic import BaseModel
 
+from youwol_infra.context import Context
 
-async def exec_command(cmd: str):
+
+async def exec_command(cmd: str, context: Context = None):
 
     p = await asyncio.create_subprocess_shell(
         cmd=cmd,
@@ -16,7 +18,8 @@ async def exec_command(cmd: str):
         shell=True)
 
     async for f in merge(p.stdout, p.stderr):
-        print(f.decode('utf-8'))
+        context and await context.info(text=f.decode('utf-8'))
+        # print(f.decode('utf-8'))
 
     await p.communicate()
 

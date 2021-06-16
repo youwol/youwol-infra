@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from typing import NamedTuple, Optional
 
+from youwol_infra.context import Context
 from youwol_infra.utils.utils import exec_command
 
 
@@ -43,20 +44,23 @@ def helm_list(namespace: str = None, selector: Selector = None):
     return [to_resource(line) for line in output.split("\n")[1:] if line]
 
 
-async def helm_install(release_name: str, namespace: str, values_file: Path, chart_folder: Path, timeout=120, args=""):
+async def helm_install(release_name: str, namespace: str, values_file: Path, chart_folder: Path,
+                       timeout=120, args="", context: Context = None):
     cmd = f"helm install {release_name} --create-namespace --namespace {namespace} --values {str(values_file)} " +\
           f"--atomic --timeout {timeout}s {str(chart_folder)} {args}"
-    print(f"Installing {release_name}: \n\t{cmd}")
+    context and await context.info(text=cmd)
 
-    await exec_command(cmd)
+    await exec_command(cmd, context)
 
 
-async def helm_upgrade(release_name: str, namespace: str, values_file: Path, chart_folder: Path, timeout=120, args=""):
+async def helm_upgrade(release_name: str, namespace: str, values_file: Path, chart_folder: Path, timeout=120, args="",
+                       context: Context = None):
     cmd = f"helm upgrade {release_name} --namespace {namespace} --values {str(values_file)} " +\
           f"--atomic --timeout {timeout}s {str(chart_folder)}  {args}"
 
-    print(f"Upgrading {release_name}: \n\t{cmd}")
-    await exec_command(cmd)
+    context and await context.info(text=cmd)
+
+    await exec_command(cmd, context)
 
 
 async def helm_install_or_upgrade(release_name: str, namespace: str, values_file: Path, chart_folder: Path, timeout=120):

@@ -11,6 +11,8 @@ from utils.helm_utils import helm_install, helm_list, helm_upgrade
 
 from kubernetes import client, utils
 
+from youwol_infra.context import Context
+
 
 @dataclass
 class Package:
@@ -18,10 +20,10 @@ class Package:
     name: str
     namespace: str
 
-    async def install(self):
+    async def install(self, context: Context = None):
         pass
 
-    async def upgrade(self):
+    async def upgrade(self, context: Context = None):
         pass
 
     async def is_installed(self):
@@ -34,12 +36,13 @@ class Deployment(Package):
     url: Optional[str]
     path: Optional[Path]
 
-    async def install(self):
+    async def install(self, context: Context = None):
 
         path_tmp = self.path if self.path else Path('.') / str(uuid.uuid4())
         if not self.path:
+            context and context.info(text="Fetched remote deployment", json={"url": self.url})
             urllib.request.urlretrieve(
-                "https://raw.githubusercontent.com/kubernetes/dashboard/v2.2.0/aio/deploy/recommended.yaml",
+                self.url,
                 path_tmp
                 )
         try:
@@ -55,7 +58,7 @@ class HelmPackage(Package):
     chart_folder: Path
     with_values: dict
 
-    async def install(self):
+    async def install(self, context: Context = None):
 
         keys = HelmPackage.flatten_schema_values(self.with_values)
         args = functools.reduce(lambda acc, e: acc + f"--set {e[1:]} ", keys, "")
@@ -65,9 +68,10 @@ class HelmPackage(Package):
             values_file=self.chart_folder / 'values.yaml',
             chart_folder=Path(self.chart_folder),
             timeout=240,
-            args=args)
+            args=args,
+            context=context)
 
-    async def upgrade(self):
+    async def upgrade(self, context: Context = None):
 
         keys = HelmPackage.flatten_schema_values(self.with_values)
         args = functools.reduce(lambda acc, e: acc + f"--set {e[1:]} ", keys, "")
@@ -77,7 +81,8 @@ class HelmPackage(Package):
             values_file=self.chart_folder / 'values.yaml',
             chart_folder=Path(self.chart_folder),
             timeout=240,
-            args=args)
+            args=args,
+            context=context)
 
     async def is_installed(self):
         names = [r.name for r in helm_list(namespace=self.namespace)]
@@ -94,16 +99,16 @@ class HelmPackage(Package):
         return list(itertools.chain.from_iterable(r))
 
 
-async def install(package: Package):
-    print("Install package "+package.name)
-
-    is_installed = await package.is_installed()
-    if not is_installed:
-        await package.install()
-    else:
-        print(f"The package {package.name} is already installed")
-
-
-async def upgrade(package: Package):
-    print("Upgrade package "+package.name)
-    await package.upgrade()
+# async def install(package: Package):
+#     print("Install package "+package.name)
+#
+#     is_installed = await package.is_installed()
+#     if not is_installed:
+#         await package.install()
+#     else:
+#         print(f"The package {package.name} is already installed")
+#
+#
+# async def upgrade(package: Package):
+#     print("Upgrade package "+package.name)
+#     await package.upgrade()

@@ -1,6 +1,6 @@
 from typing import List
 
-from k8s_utils import k8s_pod_exec
+from youwol_infra.utils.k8s_utils import k8s_pod_exec
 
 
 async def sql_exec_commands(pod_name: str, commands: List[str]):
