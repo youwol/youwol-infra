@@ -7,6 +7,8 @@ from kubernetes.client import V1Namespace, V1Secret, V1ServiceList, V1Service
 from .utils import exec_command
 from kubernetes import client
 
+from ..context import Context
+
 
 def k8s_access_token():
     return client.CoreV1Api().api_client.configuration.api_key['authorization'].strip('Bearer').strip()
@@ -47,10 +49,10 @@ def k8s_get_service(namespace: str, name: str) -> Optional[V1Service]:
     return service
 
 
-async def k8s_pod_exec(pod_name: str, namespace: str, commands: List[str]):
+async def k8s_pod_exec(pod_name: str, namespace: str, commands: List[str], context: Context = None):
 
     for cmd in commands:
         full = f'kubectl exec -i  {pod_name} -n {namespace} -- bash -c "{cmd}"'
-        print(full)
-        await exec_command(full)
+        context and await context.info(full)
+        await exec_command(full, context=context)
 
