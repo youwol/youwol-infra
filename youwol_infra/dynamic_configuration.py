@@ -1,4 +1,5 @@
 import pprint
+import subprocess
 import sys
 import traceback
 from pathlib import Path
@@ -6,6 +7,9 @@ from typing import List, Union, Optional
 import kubernetes as k8s
 from pydantic import BaseModel, ValidationError
 from urllib3.exceptions import NewConnectionError, ConnectTimeoutError, MaxRetryError
+
+from psutil import process_iter
+from signal import SIGTERM  # or SIGKILL
 
 from youwol_infra.context import Context
 from youwol_infra.deployment_configuration import DeploymentConfiguration, ClusterInfo
@@ -70,6 +74,8 @@ class DynamicConfigurationFactory:
         async with context.start("Switch Configuration", json={"path": str(path)}) as ctx:
             path = Path(path)
             cached = DynamicConfigurationFactory.__cached_config
+            kill_k8s_proxy(port=cached.deployment_configuration.general.proxyPort)
+
             conf, status = await safe_load(path=path, context=context)
             if not conf:
                 errors = [c.dict() for c in status.checks if isinstance(c.status, ErrorResponse)]
@@ -105,7 +111,8 @@ class CheckValidConfigurationFunction(Check):
     name: str = "Configuration function valid?"
 
 
-async def safe_load(path: Path, context: Optional[Context]) -> (DynamicConfiguration, ConfigurationLoadingStatus):
+async def safe_load(path: Path, context: Optional[Context]) \
+        -> (DynamicConfiguration, ConfigurationLoadingStatus):
 
     check_conf_path = CheckConfPath()
     check_valid_text = CheckValidTextFile()
@@ -217,12 +224,29 @@ async def safe_load(path: Path, context: Optional[Context]) -> (DynamicConfigura
         # entry is added in the file k8s_config, the context name is provided in here
         context=k8s_config.general.contextName
         )
-
+    start_k8s_proxy(port=k8s_config.general.proxyPort, context_name=k8s_config.general.contextName)
     return (
         DynamicConfiguration(config_filepath=path, deployment_configuration=k8s_config,
                              cluster_info=get_cluster_info(k8s_config)),
         get_status()
         )
+
+
+def kill_k8s_proxy(port: int):
+    for proc in process_iter():
+        try:
+            for conns in proc.connections(kind='inet'):
+                if conns.laddr.port == port:
+                    proc.send_signal(SIGTERM)  # or SIGKILL
+        except:
+            pass
+
+
+def start_k8s_proxy(context_name: str, port: int):
+
+    cmd = f"kubectl config use-context {context_name} && kubectl proxy --port={port}"
+    print(cmd)
+    subprocess.Popen(cmd, shell=True)
 
 
 def get_api_gateway_ip() -> Optional[str]:
