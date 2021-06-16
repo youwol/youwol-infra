@@ -12,6 +12,7 @@ class WebSocketsStore:
     logs: WebSocket
     k8s_dashboard: WebSocket
     postgre_sql: WebSocket
+    kong: WebSocket
 
 
 async def start_web_socket(ws: WebSocket):
