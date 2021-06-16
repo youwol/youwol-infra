@@ -43,7 +43,7 @@ def k8s_create_namespace(name: str):
 
 def k8s_get_service(namespace: str, name: str) -> Optional[V1Service]:
     services = client.CoreV1Api().list_namespaced_service(namespace).items
-    service = next( (s for s in services if s.metadata.name == name), None)
+    service = next((s for s in services if s.metadata.name == name), None)
     return service
 
 
