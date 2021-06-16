@@ -6,6 +6,7 @@ from starlette.requests import Request
 import routers.environment.router as environment
 import routers.logs.router as logs
 import routers.k8s_dashboard.router as k8s_dashboard
+import routers.postgre_sql.router as postgre_sql
 
 from youwol_infra.dynamic_configuration import dynamic_config
 from youwol_infra.service_configuration import configuration, assert_python
@@ -31,6 +32,7 @@ router = APIRouter()
 app.include_router(environment.router, prefix=configuration.base_path+"/environment", tags=["environment"])
 app.include_router(logs.router, prefix=configuration.base_path+"/logs", tags=["logs"])
 app.include_router(k8s_dashboard.router, prefix=configuration.base_path+"/k8s-dashboard", tags=["K8s dashboard"])
+app.include_router(postgre_sql.router, prefix=configuration.base_path+"/postgre-sql", tags=["Postgre SQL"])
 
 
 @app.exception_handler(YouWolException)
