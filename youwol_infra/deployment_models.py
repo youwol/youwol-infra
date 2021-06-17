@@ -40,7 +40,7 @@ class Deployment(Package):
 
         path_tmp = self.path if self.path else Path('.') / str(uuid.uuid4())
         if not self.path:
-            context and context.info(text="Fetched remote deployment", json={"url": self.url})
+            context and await context.info(text="Fetched remote deployment", json={"url": self.url})
             urllib.request.urlretrieve(
                 self.url,
                 path_tmp
