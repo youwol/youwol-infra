@@ -13,7 +13,7 @@ from signal import SIGTERM  # or SIGKILL
 
 from youwol_infra.context import Context
 from youwol_infra.deployment_configuration import DeploymentConfiguration, ClusterInfo
-from youwol_infra.utils.k8s_utils import k8s_access_token, k8s_get_service
+from youwol_infra.utils.k8s_utils import k8s_access_token, k8s_get_service, kill_k8s_proxy
 from youwol_infra.service_configuration import get_service_config
 
 
@@ -230,16 +230,6 @@ async def safe_load(path: Path, context: Optional[Context]) \
                              cluster_info=get_cluster_info(k8s_config)),
         get_status()
         )
-
-
-def kill_k8s_proxy(port: int):
-    for proc in process_iter():
-        try:
-            for conns in proc.connections(kind='inet'):
-                if conns.laddr.port == port:
-                    proc.send_signal(SIGTERM)  # or SIGKILL
-        except:
-            pass
 
 
 def start_k8s_proxy(context_name: str, port: int):

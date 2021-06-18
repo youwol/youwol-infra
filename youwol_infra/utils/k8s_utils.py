@@ -1,10 +1,13 @@
+import subprocess
 from pathlib import Path
-from typing import List, Dict, Optional
+from signal import SIGTERM
+from typing import List, Dict, Optional, Union
 
 import yaml
-from kubernetes.client import V1Namespace, V1Secret, V1ServiceList, V1Service
+from kubernetes.client import V1Namespace, V1Service, ExtensionsV1beta1Api, ExtensionsV1beta1Ingress
+from psutil import process_iter
 
-from .utils import exec_command
+from .utils import exec_command, to_json_response, get_port_number
 from kubernetes import client
 
 from ..context import Context
@@ -43,7 +46,7 @@ def k8s_create_namespace(name: str):
     client.CoreV1Api().create_namespace(body=V1Namespace(metadata=dict(name=name)))
 
 
-def k8s_get_service(namespace: str, name: str) -> Optional[V1Service]:
+async def k8s_get_service(namespace: str, name: str) -> Optional[V1Service]:
     services = client.CoreV1Api().list_namespaced_service(namespace).items
     service = next((s for s in services if s.metadata.name == name), None)
     return service
@@ -55,4 +58,40 @@ async def k8s_pod_exec(pod_name: str, namespace: str, commands: List[str], conte
         full = f'kubectl exec -i  {pod_name} -n {namespace} -- bash -c "{cmd}"'
         context and await context.info(full)
         await exec_command(full, context=context)
+
+
+def kill_k8s_proxy(port: int):
+    for proc in process_iter():
+        try:
+            for conns in proc.connections(kind='inet'):
+                if conns.laddr.port == port:
+                    proc.send_signal(SIGTERM)  # or SIGKILL
+        except:
+            pass
+
+
+async def k8s_port_forward(namespace: str, service_name: str, target_port: Optional[Union[str, int]],
+                           local_port: int, context: Context):
+
+    service = await k8s_get_service(namespace=namespace, name=service_name)
+    ports = service.spec.ports
+
+    port_number = ports[0].target_port
+
+    if isinstance(target_port, int):
+        port_number = ports[target_port].target_port
+    if isinstance(target_port, str):
+        port_number = next(p for p in ports if p.name == target_port).target_port
+
+    cmd = f"kubectl port-forward -n {namespace} service/{service_name} {local_port}:{port_number}"
+    kill_k8s_proxy(local_port)
+    print(cmd)
+    # await context.info(text=cmd, json=to_json_response({service_name: service.to_dict()}))
+    subprocess.Popen(cmd, shell=True)
+
+
+async def k8s_get_ingress(namespace: str, name: str) -> Optional[ExtensionsV1beta1Ingress]:
+    ingresses = ExtensionsV1beta1Api().list_namespaced_ingress(namespace=namespace)
+    ingress = next((i for i in ingresses.items if i.metadata.name == name), None)
+    return ingress
 
