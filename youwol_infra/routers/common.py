@@ -49,3 +49,27 @@ async def install_package(
             )
         await channel_ws.send_json(to_json_response(resp))
         await package.install(ctx)
+
+
+async def upgrade_package(
+        request: Request,
+        config: DynamicConfiguration,
+        package: Package,
+        channel_ws: WebSocket):
+
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
+    async with context.start(action=f"Upgrade {package.name} in {package.namespace}") as ctx:
+
+        is_installed = await package.is_installed()
+
+        resp = StatusBase(
+            installed=is_installed,
+            sanity=Sanity.SANE if is_installed else None,
+            pending=True
+            )
+        await channel_ws.send_json(to_json_response(resp))
+        await package.upgrade(ctx)
