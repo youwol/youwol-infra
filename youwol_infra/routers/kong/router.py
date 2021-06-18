@@ -102,8 +102,8 @@ async def send_status(request: Request, config: DynamicConfiguration):
 
 
 @router.get("/status", summary="trigger fetching status of Kong component")
-async def status(config: DynamicConfiguration = Depends(dynamic_config)):
-    await send_status(config)
+async def status(request: Request, config: DynamicConfiguration = Depends(dynamic_config)):
+    await send_status(request=request, config=config)
 
 
 @router.get("/install", summary="trigger install of Kong component")
@@ -114,4 +114,35 @@ async def install(request: Request, config: DynamicConfiguration = Depends(dynam
         await install_package(request=request, config=config, package=package,
                               channel_ws=WebSocketsStore.kong)
     finally:
-        await send_status(config)
+        await send_status(request=request, config=config)
+
+
+@router.get("/kong-admin/info", summary="kon admin service info")
+async def kong_admin_info(request: Request, config: DynamicConfiguration = Depends(dynamic_config)):
+
+    service = await k8s_get_service(namespace=Kong.namespace, name='api-kong-admin')
+
+    return to_json_response(service.to_dict())
+
+
+@router.get("/kong-admin/services", summary="published services")
+async def kong_admin_services():
+
+    url = f"http://localhost:{Kong.kong_admin_port_fwd}/services"
+    async with aiohttp.ClientSession() as session:
+        async with await session.get(url=url) as resp:
+            if resp.status == 200:
+                return to_json_response(await resp.json())
+            await raise_exception_from_response(resp, url=url)
+
+
+@router.get("/kong-admin/services/{service}/routes", summary="published services")
+async def kong_admin_services(service: str):
+
+    url = f"http://localhost:{Kong.kong_admin_port_fwd}/services/{service}/routes"
+    async with aiohttp.ClientSession() as session:
+        async with await session.get(url=url) as resp:
+            if resp.status == 200:
+                return to_json_response(await resp.json())
+            await raise_exception_from_response(resp, url=url)
+
