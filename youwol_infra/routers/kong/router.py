@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
+import aiohttp
 from fastapi import APIRouter, WebSocket, Depends
 from starlette.requests import Request
 
@@ -10,10 +11,14 @@ from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
 from youwol_infra.routers.common import install_package, StatusBase, Sanity
 from youwol_infra.service_configuration import Configuration
-from youwol_infra.utils.k8s_utils import k8s_namespaces, k8s_create_namespace, k8s_create_secrets_if_needed
+from youwol_infra.utils.k8s_utils import (
+    k8s_namespaces, k8s_create_namespace, k8s_create_secrets_if_needed,
+    k8s_port_forward, k8s_get_service,
+    )
 from youwol_infra.utils.sql_utils import sql_exec_commands
-from youwol_infra.utils.utils import to_json_response
+from youwol_infra.utils.utils import to_json_response, get_port_number
 from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
+from youwol_utils import raise_exception_from_response
 
 router = APIRouter()
 
@@ -28,8 +33,6 @@ class Kong(HelmPackage):
     postgre_sql_pod_name: str = "postgresql-postgresql-0"
     name: str = "api"
     namespace: str = "api-gateway"
-    welcome_messages: List[str] = field(default_factory=list)
-    success_messages: List[str] = field(default_factory=list)
     chart_folder: Path = Configuration.charts_folder / 'kong'
     with_values: dict = field(default_factory=lambda: {
              "proxy": {
@@ -47,6 +50,8 @@ class Kong(HelmPackage):
         "CREATE DATABASE kong;",
         "GRANT ALL PRIVILEGES ON DATABASE kong TO kong;"
         ])
+
+    kong_admin_port_fwd = get_port_number(name='kong-admin', ports_range=(2000, 3000))
 
     async def install(self, context: Context = None):
 
@@ -75,7 +80,13 @@ async def ws_endpoint(ws: WebSocket):
     await start_web_socket(ws)
 
 
-async def send_status(configuration: DynamicConfiguration):
+async def send_status(request: Request, config: DynamicConfiguration):
+
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
 
     kong = Kong()
     is_installed = await kong.is_installed()
@@ -84,6 +95,9 @@ async def send_status(configuration: DynamicConfiguration):
         sanity=Sanity.SANE if is_installed else None,
         pending=False
         )
+    if is_installed:
+        await k8s_port_forward(namespace='api-gateway', service_name="api-kong-admin", target_port="kong-admin",
+                               local_port=kong.kong_admin_port_fwd, context=context)
     await WebSocketsStore.kong.send_json(to_json_response(resp))
 
 
