@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, WebSocket, Depends
 from pydantic import BaseModel
 from starlette.requests import Request
+from starlette.responses import FileResponse
 
 from youwol_infra.context import Context
 from youwol_infra.deployment_models import Deployment
@@ -62,6 +63,12 @@ async def send_status(configuration: DynamicConfiguration):
         accessToken=configuration.cluster_info.access_token
         )
     await WebSocketsStore.k8s_dashboard.send_json(to_json_response(resp))
+
+
+@router.get("/icon")
+async def icon():
+    path = Path(__file__).parent / 'k8s-dashboard.png'
+    return FileResponse(path)
 
 
 @router.get("/status", summary="trigger fetching status of k8s dashboard component")
