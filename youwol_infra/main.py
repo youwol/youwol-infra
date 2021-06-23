@@ -10,6 +10,7 @@ import routers.postgre_sql.router as postgre_sql
 import routers.kong.router as kong
 import routers.minio.router as minio
 import routers.scylla.router as scylla
+import routers.docdb.router as docdb
 import routers.redis.router as redis
 
 from youwol_infra.dynamic_configuration import dynamic_config
@@ -40,6 +41,7 @@ app.include_router(postgre_sql.router, prefix=configuration.base_path+"/postgre-
 app.include_router(kong.router, prefix=configuration.base_path+"/kong", tags=["Kong"])
 app.include_router(minio.router, prefix=configuration.base_path+"/minio", tags=["Minio"])
 app.include_router(scylla.router, prefix=configuration.base_path+"/scylla", tags=["Scylla"])
+app.include_router(docdb.router, prefix=configuration.base_path+"/docdb", tags=["DocDb"])
 app.include_router(redis.router, prefix=configuration.base_path+"/redis", tags=["Redis"])
 
 
