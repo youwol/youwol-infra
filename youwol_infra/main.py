@@ -11,7 +11,9 @@ import routers.kong.router as kong
 import routers.minio.router as minio
 import routers.scylla.router as scylla
 import routers.docdb.router as docdb
+import routers.storage.router as storage
 import routers.redis.router as redis
+
 
 from youwol_infra.dynamic_configuration import dynamic_config
 from youwol_infra.service_configuration import configuration, assert_python
@@ -42,6 +44,7 @@ app.include_router(kong.router, prefix=configuration.base_path+"/kong", tags=["K
 app.include_router(minio.router, prefix=configuration.base_path+"/minio", tags=["Minio"])
 app.include_router(scylla.router, prefix=configuration.base_path+"/scylla", tags=["Scylla"])
 app.include_router(docdb.router, prefix=configuration.base_path+"/docdb", tags=["DocDb"])
+app.include_router(storage.router, prefix=configuration.base_path+"/storage", tags=["Storage"])
 app.include_router(redis.router, prefix=configuration.base_path+"/redis", tags=["Redis"])
 
 
