@@ -2,6 +2,7 @@ import base64
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Optional
 
 from fastapi import APIRouter, WebSocket, Depends
 from kubernetes import client
@@ -21,9 +22,9 @@ router = APIRouter()
 
 
 class Status(StatusBase):
-    url: str
-    accessKey: str
-    secretKey: str
+    url: Optional[str]
+    accessKey: Optional[str]
+    secretKey: Optional[str]
 
 
 @dataclass
@@ -65,6 +66,17 @@ async def send_status(request: Request, config: DynamicConfiguration):
 
     minio = Minio()
     is_installed = await minio.is_installed()
+    if not is_installed:
+        resp = Status(
+            installed=is_installed,
+            sanity=Sanity.SANE if is_installed else None,
+            pending=False,
+            url=None,
+            accessKey=None,
+            secretKey=None
+            )
+        await WebSocketsStore.minio.send_json(to_json_response(resp))
+        return
     ingress = await k8s_get_ingress(namespace=minio.namespace, name=minio.name)
     secret = client.CoreV1Api().read_namespaced_secret(name="minio", namespace=minio.namespace).data
     resp = Status(
