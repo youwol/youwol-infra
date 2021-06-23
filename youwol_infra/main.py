@@ -9,6 +9,7 @@ import routers.k8s_dashboard.router as k8s_dashboard
 import routers.postgre_sql.router as postgre_sql
 import routers.kong.router as kong
 import routers.minio.router as minio
+import routers.scylla.router as scylla
 
 from youwol_infra.dynamic_configuration import dynamic_config
 from youwol_infra.service_configuration import configuration, assert_python
@@ -37,6 +38,7 @@ app.include_router(k8s_dashboard.router, prefix=configuration.base_path+"/k8s-da
 app.include_router(postgre_sql.router, prefix=configuration.base_path+"/postgre-sql", tags=["Postgre SQL"])
 app.include_router(kong.router, prefix=configuration.base_path+"/kong", tags=["Kong"])
 app.include_router(minio.router, prefix=configuration.base_path+"/minio", tags=["Minio"])
+app.include_router(scylla.router, prefix=configuration.base_path+"/scylla", tags=["Scylla"])
 
 
 @app.exception_handler(YouWolException)
