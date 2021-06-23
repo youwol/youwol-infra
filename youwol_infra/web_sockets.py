@@ -14,6 +14,10 @@ class WebSocketsStore:
     postgre_sql: WebSocket = None
     kong: WebSocket = None
     minio: WebSocket = None
+    redis: WebSocket = None
+    scylla: WebSocket = None
+    docdb: WebSocket = None
+    storage: WebSocket = None
 
 
 async def start_web_socket(ws: WebSocket):
