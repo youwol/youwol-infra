@@ -6,6 +6,7 @@ from typing import Optional, List
 from fastapi import APIRouter, WebSocket, Depends
 from pydantic import BaseModel
 from starlette.requests import Request
+from starlette.responses import FileResponse
 
 from youwol_infra.context import Context
 from youwol_infra.deployment_models import HelmPackage
@@ -71,6 +72,12 @@ async def send_status(configuration: DynamicConfiguration):
         pending=False
         )
     await WebSocketsStore.postgre_sql.send_json(to_json_response(resp))
+
+
+@router.get("/icon")
+async def icon():
+    path = Path(__file__).parent / 'postgre.svg'
+    return FileResponse(path)
 
 
 @router.get("/status", summary="trigger fetching status of postgre SQL component")
