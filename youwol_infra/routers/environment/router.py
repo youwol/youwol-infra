@@ -5,6 +5,7 @@ from typing import List
 from fastapi import APIRouter, WebSocket, Depends
 from pydantic import BaseModel
 from starlette.requests import Request
+from starlette.responses import FileResponse
 
 from youwol_infra.context import Context, ActionStep
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration, DynamicConfigurationFactory
@@ -41,6 +42,12 @@ async def ws_endpoint(ws: WebSocket):
 async def send_status(configuration: DynamicConfiguration):
 
     await WebSocketsStore.environment.send_json(to_json_response(configuration))
+
+
+@router.get("/icon")
+async def icon():
+    path = Path(__file__).parent / 'settings.png'
+    return FileResponse(path)
 
 
 @router.post("/switch-configuration",
