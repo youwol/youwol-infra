@@ -1,6 +1,7 @@
 kubernetes==17.17.0
 #fastapi==0.65.2 <= something is not working with this version when used with aiohttp.post(data=...bytes...)
 fastapi==0.65.1
+aiofiles==0.7.0
 uvicorn==0.14.0
 python-multipart==0.0.5
 aiohttp==3.7.4.post0
