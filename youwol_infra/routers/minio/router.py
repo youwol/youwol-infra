@@ -7,6 +7,8 @@ from fastapi import APIRouter, WebSocket, Depends
 from kubernetes import client
 from kubernetes.client import ExtensionsV1beta1Api
 from starlette.requests import Request
+from starlette.responses import FileResponse
+
 from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
 from youwol_infra.routers.common import install_package, StatusBase, Sanity, upgrade_package
@@ -51,6 +53,12 @@ async def ws_endpoint(ws: WebSocket):
     WebSocketsStore.minio = ws
     await WebSocketsStore.minio.send_json({})
     await start_web_socket(ws)
+
+
+@router.get("/icon")
+async def icon():
+    path = Path(__file__).parent / 'minio.png'
+    return FileResponse(path)
 
 
 async def send_status(request: Request, config: DynamicConfiguration):
