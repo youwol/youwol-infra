@@ -35,10 +35,11 @@ def k8s_create_secret(namespace: str, file_path: Path):
         client.CoreV1Api().create_namespaced_secret(namespace=namespace, body=data)
 
 
-def k8s_create_secrets_if_needed(namespace: str, secrets: Dict[str, Path]):
+async def k8s_create_secrets_if_needed(namespace: str, secrets: Dict[str, Path], context: Context = None):
     existing = k8s_secrets(namespace=namespace)
     needed = [k for k in secrets.keys() if k not in existing]
     for name in needed:
+        context and await context.info(f"Create secret {name} in namespace {namespace}")
         k8s_create_secret(namespace=namespace, file_path=secrets[name])
 
 

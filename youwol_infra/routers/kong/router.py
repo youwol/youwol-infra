@@ -61,7 +61,7 @@ class Kong(HelmPackage):
             k8s_create_namespace(name=self.namespace)
 
         context and await context.info(f"Create secrets", json=to_json_response(self.secrets))
-        k8s_create_secrets_if_needed(namespace="api-gateway", secrets=self.secrets)
+        await k8s_create_secrets_if_needed(namespace="api-gateway", secrets=self.secrets)
 
         await sql_exec_commands(
             pod_name=self.postgre_sql_pod_name,
