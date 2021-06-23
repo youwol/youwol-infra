@@ -1,17 +1,15 @@
 from dataclasses import dataclass, field
-from enum import Enum
 from pathlib import Path
-from typing import Optional, List
+from typing import List
 
 from fastapi import APIRouter, WebSocket, Depends
-from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from youwol_infra.context import Context
 from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
-from youwol_infra.routers.common import install_package, StatusBase, Sanity
+from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack, upgrade_pack
 from youwol_infra.service_configuration import Configuration
 from youwol_infra.utils.sql_utils import sql_exec_commands
 from youwol_infra.utils.utils import to_json_response
@@ -29,15 +27,13 @@ class PostgreSQL(HelmPackage):
 
     name: str = "postgresql"
     namespace: str = "infra"
+
+    icon: str = "/api/youwol-infra/postgre-sql/icon"
+
     postgre_sql_pod_name: str = "postgresql-postgresql-0"
     chart_folder: Path = Configuration.charts_folder / name
 
-    with_values: dict = field(default_factory=lambda: {
-            "persistence": {
-                "storageClass": "standard",
-                "size": "2Gi"
-                }
-            })
+    with_values: dict = field(default_factory=lambda: {})
 
     postgres_commands: List[str] = field(default_factory=lambda: [
         "CREATE ROLE youwoluser WITH LOGIN;",
@@ -62,12 +58,13 @@ async def ws_endpoint(ws: WebSocket):
     await start_web_socket(ws)
 
 
-async def send_status(configuration: DynamicConfiguration):
+async def send_status(namespace: str, configuration: DynamicConfiguration):
 
     postgre_sql = PostgreSQL()
     is_installed = await postgre_sql.is_installed()
     resp = Status(
         installed=is_installed,
+        namespace=namespace,
         sanity=Sanity.SANE if is_installed else None,
         pending=False
         )
@@ -80,18 +77,47 @@ async def icon():
     return FileResponse(path)
 
 
-@router.get("/status", summary="trigger fetching status of postgre SQL component")
-async def status(config: DynamicConfiguration = Depends(dynamic_config)):
-    await send_status(config)
+@router.get("/{namespace}/status", summary="trigger fetching status of postgre SQL component")
+async def status(
+        namespace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+    await send_status(namespace=namespace, configuration=config)
 
 
-@router.get("/install", summary="trigger install of postgre SQL component")
-async def install(request: Request, config: DynamicConfiguration = Depends(dynamic_config)):
+@router.post("/{namespace}/install", summary="trigger install of PostgreSql component")
+async def install(
+        request: Request,
+        namespace: str,
+        body: HelmValues,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
 
-    package = PostgreSQL()
-    try:
-        await install_package(request=request, config=config, package=package,
-                              channel_ws=WebSocketsStore.postgre_sql)
-    finally:
-        await send_status(config)
+    await install_pack(
+        request=request,
+        config=config,
+        name='postgresql',
+        namespace=namespace,
+        helm_values=body.values,
+        channel_ws=WebSocketsStore.postgre_sql,
+        finally_action=lambda: status(request, namespace, config)
+        )
 
+
+@router.post("/{namespace}/upgrade", summary="trigger upgrade of PostgreSql component")
+async def upgrade(
+        request: Request,
+        namespace: str,
+        body: HelmValues,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+
+    await upgrade_pack(
+        request=request,
+        config=config,
+        name='postgresql',
+        namespace=namespace,
+        helm_values=body.values,
+        channel_ws=WebSocketsStore.postgre_sql,
+        finally_action=lambda: status(request, namespace, config)
+        )

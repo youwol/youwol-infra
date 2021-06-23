@@ -1,8 +1,7 @@
-from enum import Enum
 from typing import Optional, List, Any
-
-from kubernetes.client import V1NodeStatus
 from pydantic import BaseModel
+
+from youwol_infra.deployment_models import Package
 
 
 class ClusterInfo(BaseModel):
@@ -19,3 +18,4 @@ class General(BaseModel):
 
 class DeploymentConfiguration(BaseModel):
     general: General
+    packages: List[Any]

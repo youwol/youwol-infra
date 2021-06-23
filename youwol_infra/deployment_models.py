@@ -19,6 +19,7 @@ class Package:
 
     name: str
     namespace: str
+    icon: str
 
     async def install(self, context: Context = None):
         pass

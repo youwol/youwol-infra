@@ -1,17 +1,13 @@
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, WebSocket, Depends
-from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
-from youwol_infra.context import Context
 from youwol_infra.deployment_models import Deployment
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
-from youwol_infra.routers.common import StatusBase, Sanity, install_package
+from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack
 from youwol_infra.utils.k8s_utils import k8s_namespaces
 from youwol_infra.utils.utils import to_json_response
 from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
@@ -28,6 +24,7 @@ class Status(StatusBase):
 class K8sDashboard(Deployment):
     name: str = "k8sDashboard"
     namespace: str = "kubernetes-dashboard"
+    icon: str = "/api/youwol-infra/k8s-dashboard/icon"
     url: str = "https://raw.githubusercontent.com/kubernetes/dashboard/v2.2.0/aio/deploy/recommended.yaml"
     path: Path = None
 
@@ -51,12 +48,13 @@ async def ws_endpoint(ws: WebSocket):
     await start_web_socket(ws)
 
 
-async def send_status(configuration: DynamicConfiguration):
+async def send_status(namespace: str, configuration: DynamicConfiguration):
 
     k8s_dashboard = K8sDashboard()
     is_installed = await k8s_dashboard.is_installed()
     resp = Status(
         installed=is_installed,
+        namespace=namespace,
         sanity=Sanity.SANE if is_installed else None,
         pending=False,
         dashboardUrl=k8s_dashboard.dashboard_url(configuration.deployment_configuration.general.proxyPort),
@@ -71,19 +69,27 @@ async def icon():
     return FileResponse(path)
 
 
-@router.get("/status", summary="trigger fetching status of k8s dashboard component")
-async def status(config: DynamicConfiguration = Depends(dynamic_config)):
-    await send_status(config)
+@router.get("/{namespace}/status", summary="trigger fetching status of k8s dashboard component")
+async def status(
+        namespace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)):
+    await send_status(namespace=namespace, configuration=config)
 
 
-@router.get("/install", summary="trigger install of k8s dashboard component")
-async def install(request: Request, config: DynamicConfiguration = Depends(dynamic_config)):
+@router.post("/{namespace}/install", summary="trigger install of DocDb component")
+async def install(
+        request: Request,
+        namespace: str,
+        body: HelmValues,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
 
-    package = K8sDashboard()
-    try:
-        await install_package(request=request, config=config, package=package,
-                              channel_ws=WebSocketsStore.k8s_dashboard)
-    finally:
-        await send_status(config)
-
-
+    await install_pack(
+        request=request,
+        config=config,
+        name='k8sDashboard',
+        namespace=namespace,
+        helm_values=body.values,
+        channel_ws=WebSocketsStore.k8s_dashboard,
+        finally_action=lambda: status(request, namespace, config)
+        )

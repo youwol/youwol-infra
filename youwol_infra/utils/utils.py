@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import json
 from datetime import datetime
 from enum import Enum
 from pathlib import Path, PosixPath
@@ -49,50 +50,85 @@ async def merge(*iterables):
 JSON = Union[str, int, float, bool, None, Mapping[str, 'JSON'], List['JSON']]
 
 
+def to_camel_case(key: str):
+    components = key.split('_')
+    return components[0] + ''.join(x.title() for x in components[1:])
+
+
+def to_serializable(obj):
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, PosixPath):
+        return str(obj)
+    if isinstance(obj, Callable):
+        return "function"
+    if isinstance(obj, Enum):
+        return obj.name
+    if isinstance(obj, datetime):
+        return str(obj)
+    if isinstance(obj, dict):
+        return obj
+    return obj.__dict__
+
+
 def to_json_response(obj: Union[BaseModel, dict]) -> JSON:
 
-    def to_camel_case(key: str):
-        components = key.split('_')
-        return components[0] + ''.join(x.title() for x in components[1:])
+    a = json.dumps(to_serializable(obj), default=lambda o: to_serializable(o))
+    b = json.loads(a)
 
-    def to_serializable(v):
-        if isinstance(v, Path):
-            return str(v)
-        if isinstance(v, PosixPath):
-            return str(v)
-        if isinstance(v, Callable):
-            return "function"
-        if isinstance(v, Enum):
-            return v.name
-        if isinstance(v, datetime):
-            return str(v)
-        return v
-
-    base = obj.dict() if isinstance(obj, BaseModel) else obj
-    target = {}
-
-    def to_json_rec(_obj: Any, target):
-
+    def to_json_rec(_obj: Any):
+        result = {}
         if isinstance(_obj, dict):
             for k, v in _obj.items():
-                keyCC = to_camel_case(k)
-                if not isinstance(v, dict) and not isinstance(v, list):
-                    target[keyCC] = to_serializable(v)
-                if isinstance(v, dict):
-                    target[keyCC] = {}
-                    to_json_rec(v, target[keyCC])
-                if isinstance(v, list):
-                    target[keyCC] = []
-                    for i, e in enumerate(v):
-                        if not isinstance(e, dict) and not isinstance(e, list):
-                            target[keyCC].append(to_serializable(e))
-                        else:
-                            child = {}
-                            to_json_rec(e, child)
-                            target[keyCC].append(child)
+                result[to_camel_case(k)] = to_json_rec(v)
+        elif isinstance(_obj, list):
+            result = [to_json_rec(v) for v in _obj]
+        else:
+            result = _obj
 
-    to_json_rec(base, target)
-    return target
+        return result
+
+    return to_json_rec(b)
+# def to_json_response(obj: Union[BaseModel, dict]) -> JSON:
+#
+#     def to_serializable(v):
+#         if isinstance(v, Path):
+#             return str(v)
+#         if isinstance(v, PosixPath):
+#             return str(v)
+#         if isinstance(v, Callable):
+#             return "function"
+#         if isinstance(v, Enum):
+#             return v.name
+#         if isinstance(v, datetime):
+#             return str(v)
+#         return v
+#
+#     base = obj.dict() if isinstance(obj, BaseModel) else obj
+#     target = {}
+#
+#     def to_json_rec(_obj: Any, target):
+#
+#         if isinstance(_obj, dict):
+#             for k, v in _obj.items():
+#                 keyCC = to_camel_case(k)
+#                 if not isinstance(v, dict) and not isinstance(v, list):
+#                     target[keyCC] = to_serializable(v)
+#                 if isinstance(v, dict):
+#                     target[keyCC] = {}
+#                     to_json_rec(v, target[keyCC])
+#                 if isinstance(v, list):
+#                     target[keyCC] = []
+#                     for i, e in enumerate(v):
+#                         if not isinstance(e, dict) and not isinstance(e, list):
+#                             target[keyCC].append(to_serializable(e))
+#                         else:
+#                             child = {}
+#                             to_json_rec(e, child)
+#                             target[keyCC].append(child)
+#
+#     to_json_rec(base, target)
+#     return target
 
 
 def get_port_number(name: str, ports_range: (int, int)):

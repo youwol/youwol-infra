@@ -73,6 +73,8 @@ async def log(
         json: JSON = None,
         context_id: List[str] = None,
         ):
+    if not  WebSocketsStore.logs:
+        return
     web_socket = WebSocketsStore.logs
     message = {
         "level": level.name,

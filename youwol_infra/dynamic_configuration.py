@@ -8,9 +8,6 @@ import kubernetes as k8s
 from pydantic import BaseModel, ValidationError
 from urllib3.exceptions import NewConnectionError, ConnectTimeoutError, MaxRetryError
 
-from psutil import process_iter
-from signal import SIGTERM  # or SIGKILL
-
 from youwol_infra.context import Context
 from youwol_infra.deployment_configuration import DeploymentConfiguration, ClusterInfo
 from youwol_infra.utils.k8s_utils import k8s_access_token, k8s_get_service, kill_k8s_proxy
@@ -225,9 +222,10 @@ async def safe_load(path: Path, context: Optional[Context]) \
         context=k8s_config.general.contextName
         )
     start_k8s_proxy(port=k8s_config.general.proxyPort, context_name=k8s_config.general.contextName)
+    cluster_info = await get_cluster_info(k8s_config)
     return (
         DynamicConfiguration(config_filepath=path, deployment_configuration=k8s_config,
-                             cluster_info=get_cluster_info(k8s_config)),
+                             cluster_info=cluster_info),
         get_status()
         )
 
@@ -239,14 +237,14 @@ def start_k8s_proxy(context_name: str, port: int):
     subprocess.Popen(cmd, shell=True)
 
 
-def get_api_gateway_ip() -> Optional[str]:
-    kong = k8s_get_service(namespace='api_gateway', name='kong-kong-proxy')
+async def get_api_gateway_ip() -> Optional[str]:
+    kong = await k8s_get_service(namespace='api_gateway', name='kong-kong-proxy')
     if not kong:
         return None
     return None
 
 
-def get_cluster_info(k8s_config: DeploymentConfiguration) -> Optional[ClusterInfo]:
+async def get_cluster_info(k8s_config: DeploymentConfiguration) -> Optional[ClusterInfo]:
     access_token = k8s_access_token()
 
     try:
@@ -256,7 +254,7 @@ def get_cluster_info(k8s_config: DeploymentConfiguration) -> Optional[ClusterInf
         print("Failed to retrieve nodes, cluster up and running?")
         return None
 
-    api_gateway_ip = get_api_gateway_ip()
+    api_gateway_ip = await get_api_gateway_ip()
 
     return ClusterInfo(
         nodes=nodes,

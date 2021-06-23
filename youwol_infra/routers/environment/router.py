@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
-from youwol_infra.context import Context, ActionStep
+from youwol_infra.context import Context
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration, DynamicConfigurationFactory
 from youwol_infra.utils.utils import to_json_response
 from youwol_infra.web_sockets import WebSocketsStore, start_web_socket

@@ -10,7 +10,7 @@ from starlette.responses import FileResponse
 from youwol_infra.context import Context
 from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
-from youwol_infra.routers.common import install_package, StatusBase, Sanity
+from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack
 from youwol_infra.service_configuration import Configuration
 from youwol_infra.utils.k8s_utils import (
     k8s_namespaces, k8s_create_namespace, k8s_create_secrets_if_needed,
@@ -34,12 +34,11 @@ class Kong(HelmPackage):
     postgre_sql_pod_name: str = "postgresql-postgresql-0"
     name: str = "api"
     namespace: str = "api-gateway"
+
+    icon: str = "/api/youwol-infra/kong/icon"
+
     chart_folder: Path = Configuration.charts_folder / 'kong'
-    with_values: dict = field(default_factory=lambda: {
-             "proxy": {
-                 "loadBalancerIP": "104.199.0.92"
-                 }
-             })
+    with_values: dict = field(default_factory=lambda: {})
 
     secrets: dict = field(default_factory=lambda: {
         "gitlab-docker": Configuration.secrets_folder / "gitlab-docker.yaml",
@@ -81,7 +80,10 @@ async def ws_endpoint(ws: WebSocket):
     await start_web_socket(ws)
 
 
-async def send_status(request: Request, config: DynamicConfiguration):
+async def send_status(
+        request: Request,
+        config: DynamicConfiguration,
+        namespace: str):
 
     context = Context(
         request=request,
@@ -93,11 +95,12 @@ async def send_status(request: Request, config: DynamicConfiguration):
     is_installed = await kong.is_installed()
     resp = Status(
         installed=is_installed,
+        namespace=namespace,
         sanity=Sanity.SANE if is_installed else None,
         pending=False
         )
     if is_installed:
-        await k8s_port_forward(namespace='api-gateway', service_name="api-kong-admin", target_port="kong-admin",
+        await k8s_port_forward(namespace=namespace, service_name="api-kong-admin", target_port="kong-admin",
                                local_port=kong.kong_admin_port_fwd, context=context)
     await WebSocketsStore.kong.send_json(to_json_response(resp))
 
@@ -108,32 +111,48 @@ async def icon():
     return FileResponse(path)
 
 
-@router.get("/status", summary="trigger fetching status of Kong component")
-async def status(request: Request, config: DynamicConfiguration = Depends(dynamic_config)):
-    await send_status(request=request, config=config)
+@router.get("/{namespace}/status", summary="trigger fetching status of Kong component")
+async def status(
+        request: Request,
+        namespace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+    await send_status(request=request, config=config, namespace=namespace)
 
 
-@router.get("/install", summary="trigger install of Kong component")
-async def install(request: Request, config: DynamicConfiguration = Depends(dynamic_config)):
+@router.post("/{namespace}/install", summary="trigger install of Kong component")
+async def install(
+        request: Request,
+        namespace: str,
+        body: HelmValues,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
 
-    package = Kong()
-    try:
-        await install_package(request=request, config=config, package=package,
-                              channel_ws=WebSocketsStore.kong)
-    finally:
-        await send_status(request=request, config=config)
+    await install_pack(
+        request=request,
+        config=config,
+        name='api',
+        namespace=namespace,
+        helm_values=body.values,
+        channel_ws=WebSocketsStore.kong,
+        finally_action=lambda: status(request, namespace, config)
+        )
 
 
-@router.get("/kong-admin/info", summary="kon admin service info")
-async def kong_admin_info(request: Request, config: DynamicConfiguration = Depends(dynamic_config)):
+@router.get("/{namespace}/kong-admin/info", summary="kon admin service info")
+async def kong_admin_info(
+        request: Request,
+        namespace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
 
-    service = await k8s_get_service(namespace=Kong.namespace, name='api-kong-admin')
+    service = await k8s_get_service(namespace=namespace, name='api-kong-admin')
 
     return to_json_response(service.to_dict())
 
 
-@router.get("/kong-admin/services", summary="published services")
-async def kong_admin_services():
+@router.get("/{namespace}/kong-admin/services", summary="published services")
+async def kong_admin_services(namespace: str):
 
     url = f"http://localhost:{Kong.kong_admin_port_fwd}/services"
     async with aiohttp.ClientSession() as session:
@@ -143,8 +162,8 @@ async def kong_admin_services():
             await raise_exception_from_response(resp, url=url)
 
 
-@router.get("/kong-admin/services/{service}/routes", summary="published services")
-async def kong_admin_services(service: str):
+@router.get("/{namespace}/kong-admin/services/{service}/routes", summary="published services")
+async def kong_admin_services(namespace: str, service: str):
 
     url = f"http://localhost:{Kong.kong_admin_port_fwd}/services/{service}/routes"
     async with aiohttp.ClientSession() as session:
@@ -152,4 +171,3 @@ async def kong_admin_services(service: str):
             if resp.status == 200:
                 return to_json_response(await resp.json())
             await raise_exception_from_response(resp, url=url)
-
