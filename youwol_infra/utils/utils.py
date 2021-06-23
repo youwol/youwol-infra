@@ -1,4 +1,5 @@
 import asyncio
+import functools
 from datetime import datetime
 from enum import Enum
 from pathlib import Path, PosixPath
@@ -92,3 +93,10 @@ def to_json_response(obj: Union[BaseModel, dict]) -> JSON:
 
     to_json_rec(base, target)
     return target
+
+
+def get_port_number(name: str, ports_range: (int, int)):
+
+    port = functools.reduce(lambda acc, e: acc + ord(e), name, 0)
+    # need to check if somebody is already listening
+    return ports_range[0] + port % (ports_range[1]-ports_range[0])

@@ -1,12 +1,13 @@
 import argparse
 import asyncio
-import functools
 import os
 import sys
 from pathlib import Path
 
 from dataclasses import dataclass
 from typing import NamedTuple
+
+from youwol_infra.utils.utils import get_port_number
 
 parser = argparse.ArgumentParser()
 
@@ -37,12 +38,6 @@ def assert_python():
         exit(1)
 
 
-def get_port_number(name: str):
-    port = functools.reduce(lambda acc, e: acc + ord(e), name, 0)
-    # need to check if somebody is already listening
-    return 2000 + port % 1000
-
-
 class MainArguments(NamedTuple):
     config_path: Path
     execution_folder = Path(os.getcwd())
@@ -71,9 +66,8 @@ async def get_service_config():
     return Configuration(
         starting_config_path=get_yw_config_starter(),
         open_api_prefix='',
-        http_port=get_port_number(Configuration.service_name),
+        http_port=get_port_number(Configuration.service_name, (2000, 3000)),
         base_path=""
         )
 
 configuration: Configuration = asyncio.get_event_loop().run_until_complete(get_service_config())
-
