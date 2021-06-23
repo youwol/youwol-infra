@@ -5,6 +5,7 @@ from typing import List
 import aiohttp
 from fastapi import APIRouter, WebSocket, Depends
 from starlette.requests import Request
+from starlette.responses import FileResponse
 
 from youwol_infra.context import Context
 from youwol_infra.deployment_models import HelmPackage
@@ -99,6 +100,12 @@ async def send_status(request: Request, config: DynamicConfiguration):
         await k8s_port_forward(namespace='api-gateway', service_name="api-kong-admin", target_port="kong-admin",
                                local_port=kong.kong_admin_port_fwd, context=context)
     await WebSocketsStore.kong.send_json(to_json_response(resp))
+
+
+@router.get("/icon")
+async def icon():
+    path = Path(__file__).parent / 'kong.png'
+    return FileResponse(path)
 
 
 @router.get("/status", summary="trigger fetching status of Kong component")
