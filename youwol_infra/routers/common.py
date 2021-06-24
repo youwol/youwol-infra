@@ -1,13 +1,16 @@
+import os
 from enum import Enum
+from pathlib import Path
 from typing import Optional, Callable, Awaitable
 
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from starlette.requests import Request
+from starlette.responses import FileResponse
 from starlette.websockets import WebSocket
 
 from youwol_infra.context import Context
-from youwol_infra.deployment_models import Package
-from youwol_infra.dynamic_configuration import DynamicConfiguration
+from youwol_infra.dynamic_configuration import DynamicConfiguration, dynamic_config
 from youwol_infra.utils.utils import to_json_response
 from youwol_infra.web_sockets import WebSocketsStore
 
@@ -94,11 +97,48 @@ async def upgrade_pack(
             resp = StatusBase(
                 installed=is_installed,
                 sanity=Sanity.SANE if is_installed else None,
-                pending=True
+                pending=True,
+                namespace=namespace
                 )
             await channel_ws.send_json(to_json_response(resp))
             await package.upgrade(ctx)
     finally:
         await finally_action()
+
+
+router = APIRouter()
+
+
+@router.get("/charts/{name}/namespaces/{namespace}", summary="return chart files & folders")
+async def chart(
+        name: str,
+        namespace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+
+    package = next(p for p in config.deployment_configuration.packages
+                   if p.name == name and p.namespace == namespace)
+    response = {}
+    for root, folders, files in os.walk(package.chart_folder):
+        parent = Path(root).relative_to(package.chart_folder)
+        response[str(parent)] = {
+            "files": [{"name": f, "path": str(parent / f)} for f in files],
+            "folders": [{"name": f, "path": str(parent / f)} for f in folders]}
+
+    return response
+
+
+@router.get("/charts/{name}/namespaces/{namespace}/files/{rest_of_path:path}", summary="return file content")
+async def chart(
+        name: str,
+        namespace: str,
+        rest_of_path: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+
+    package = next(p for p in config.deployment_configuration.packages
+                   if p.name == name and p.namespace == namespace)
+
+    return FileResponse(package.chart_folder / rest_of_path)
 
 
