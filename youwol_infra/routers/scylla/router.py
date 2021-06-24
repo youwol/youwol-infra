@@ -1,3 +1,4 @@
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
 from youwol_infra.routers.common import install_package, StatusBase, Sanity, HelmValues, install_pack, upgrade_pack
 from youwol_infra.service_configuration import Configuration
-from youwol_infra.utils.k8s_utils import k8s_create_secrets_if_needed
+from youwol_infra.utils.k8s_utils import k8s_create_secrets_if_needed, k8s_pod_exec
 from youwol_infra.utils.utils import to_json_response
 from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
 
@@ -18,7 +19,7 @@ router = APIRouter()
 
 
 class Status(StatusBase):
-    pass
+    cqlsh_url: str
 
 
 @dataclass
@@ -56,10 +57,14 @@ async def send_status(
 
     scylla = Scylla()
     is_installed = await scylla.is_installed()
+    cqlsh_url=f"http://localhost:{config.deployment_configuration.general.proxyPort}/api/v1/namespaces/" + \
+              "kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/#/" + \
+              f"shell/{namespace}/scylla-0/scylladb?namespace={namespace}"
     if not is_installed:
         resp = Status(
             installed=is_installed,
             namespace=namespace,
+            cqlsh_url=cqlsh_url,
             sanity=Sanity.SANE if is_installed else None,
             pending=False
             )
@@ -69,6 +74,7 @@ async def send_status(
     resp = Status(
         installed=is_installed,
         namespace=namespace,
+        cqlsh_url=cqlsh_url,
         sanity=Sanity.SANE if is_installed else None,
         pending=False
         )
@@ -126,3 +132,47 @@ async def upgrade(
         channel_ws=WebSocketsStore.scylla,
         finally_action=lambda: status(request, namespace, config)
         )
+
+
+@router.get("/{namespace}/keyspaces", summary="list keyspaces")
+async def get_keyspaces(
+        request: Request,
+        namespace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
+
+    async with context.start(action=f"Get Scylla's keyspaces list") as ctx:
+        command = "cqlsh -e 'SELECT * FROM system_schema.keyspaces;'"
+        keyspaces = await k8s_pod_exec(pod_name='scylla-0', namespace=namespace, commands=[command], context=ctx)
+        items = [{'name': line.split('|')[0].strip(),
+                  'durableWrites': line.split('|')[1].strip() == 'True',
+                  'replication': json.loads(line.split('|')[2].replace('\'', "\""))}
+                 for line in keyspaces[0][3:-2]]
+        return {"keyspaces": items}
+
+
+@router.get("/{namespace}/keyspaces/{keyspace}/tables", summary="list keyspaces")
+async def get_tables(
+        request: Request,
+        namespace: str,
+        keyspace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
+    async with context.start(action=f"Get Scylla's tables list from keyspace '{keyspace}' ") as ctx:
+        command = f"cqlsh -e 'SELECT * FROM system_schema.tables WHERE keyspace_name=\$\${keyspace}\$\$;'"
+        tables = await k8s_pod_exec(pod_name='scylla-0', namespace=namespace, commands=[command], context=ctx)
+        items = [{'keyspaceName': line.split('|')[0].strip(), "tableName":line.split('|')[1].strip()}
+                 for line in tables[0][3:-2]]
+
+    return {"tables": items}
+
