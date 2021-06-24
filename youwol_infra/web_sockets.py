@@ -18,6 +18,7 @@ class WebSocketsStore:
     scylla: WebSocket = None
     docdb: WebSocket = None
     storage: WebSocket = None
+    cdn: WebSocket = None
 
 
 async def start_web_socket(ws: WebSocket):

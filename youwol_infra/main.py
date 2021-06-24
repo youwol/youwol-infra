@@ -13,6 +13,7 @@ import routers.scylla.router as scylla
 import routers.docdb.router as docdb
 import routers.storage.router as storage
 import routers.redis.router as redis
+import routers.cdn.router as cdn
 import routers.common as helm
 
 
@@ -47,6 +48,7 @@ app.include_router(scylla.router, prefix=configuration.base_path+"/scylla", tags
 app.include_router(docdb.router, prefix=configuration.base_path+"/docdb", tags=["DocDb"])
 app.include_router(storage.router, prefix=configuration.base_path+"/storage", tags=["Storage"])
 app.include_router(redis.router, prefix=configuration.base_path+"/redis", tags=["Redis"])
+app.include_router(cdn.router, prefix=configuration.base_path+"/cdn", tags=["CDN"])
 app.include_router(helm.router, prefix=configuration.base_path+"/helm", tags=["Helm"])
 
 
