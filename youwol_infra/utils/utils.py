@@ -11,6 +11,11 @@ from pydantic import BaseModel
 from youwol_infra.context import Context
 
 
+async def decorate_with(it, prefix):
+    async for item in it:
+        yield prefix, item
+
+
 async def exec_command(cmd: str, context: Context = None):
 
     p = await asyncio.create_subprocess_shell(
@@ -19,11 +24,19 @@ async def exec_command(cmd: str, context: Context = None):
         stderr=asyncio.subprocess.PIPE,
         shell=True)
 
-    async for f in merge(p.stdout, p.stderr):
-        context and await context.info(text=f.decode('utf-8'))
-        # print(f.decode('utf-8'))
+    outputs = []
+    errors = []
+    async for is_out, f in merge(decorate_with(p.stdout, True),  decorate_with(p.stderr, False)):
+        line = f.decode('utf-8')
+        if is_out:
+            context and await context.info(text=line)
+            outputs.append(line)
+        else:
+            context and await context.error(text=line)
+            errors.append(line)
 
     await p.communicate()
+    return outputs, errors
 
 
 async def merge(*iterables):

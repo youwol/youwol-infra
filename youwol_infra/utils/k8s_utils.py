@@ -55,10 +55,16 @@ async def k8s_get_service(namespace: str, name: str) -> Optional[V1Service]:
 
 async def k8s_pod_exec(pod_name: str, namespace: str, commands: List[str], context: Context = None):
 
+    cmd_outputs = []
     for cmd in commands:
         full = f'kubectl exec -i  {pod_name} -n {namespace} -- bash -c "{cmd}"'
         context and await context.info(full)
-        await exec_command(full, context=context)
+        outputs, errors = await exec_command(full, context=context)
+        if errors:
+            raise RuntimeError("k8s_pod_exec: Error happened in executing the commands")
+        cmd_outputs.append(outputs)
+
+    return cmd_outputs
 
 
 def kill_k8s_proxy(port: int):
