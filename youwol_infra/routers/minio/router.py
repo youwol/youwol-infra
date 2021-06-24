@@ -1,19 +1,17 @@
 import base64
-import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, WebSocket, Depends
 from kubernetes import client
-from kubernetes.client import ExtensionsV1beta1Api
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
 from youwol_infra.routers.common import (
-    install_package, StatusBase, Sanity, upgrade_package, install_pack, HelmValues,
+    StatusBase, Sanity, install_pack, HelmValues,
     upgrade_pack,
     )
 from youwol_infra.service_configuration import Configuration

@@ -9,7 +9,7 @@ from starlette.responses import FileResponse
 from youwol_infra.context import Context
 from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
-from youwol_infra.routers.common import install_package, StatusBase, Sanity, HelmValues, install_pack, upgrade_pack
+from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack, upgrade_pack
 from youwol_infra.service_configuration import Configuration
 from youwol_infra.utils.k8s_utils import k8s_create_secrets_if_needed, k8s_pod_exec
 from youwol_infra.utils.utils import to_json_response
