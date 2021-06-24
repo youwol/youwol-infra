@@ -21,7 +21,7 @@ class Sanity(Enum):
 
 class StatusBase(BaseModel):
     installed: bool
-    namespace: str = ""
+    namespace: str
     sanity: Optional[Sanity]
     pending: bool
 
@@ -57,6 +57,7 @@ async def install_pack(
                 return
             resp = StatusBase(
                 installed=is_installed,
+                namespace=namespace,
                 sanity=Sanity.SANE if is_installed else None,
                 pending=True
                 )
