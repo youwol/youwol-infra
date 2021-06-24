@@ -57,7 +57,9 @@ async def send_status(
         config: DynamicConfiguration
         ):
 
-    storage = Storage()
+    storage = next(p for p in config.deployment_configuration.packages
+                   if p.name == Storage.name and p.namespace == namespace)
+
     is_installed = await storage.is_installed()
     if not is_installed:
         resp = Status(

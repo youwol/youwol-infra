@@ -50,7 +50,9 @@ async def ws_endpoint(ws: WebSocket):
 
 async def send_status(namespace: str, configuration: DynamicConfiguration):
 
-    k8s_dashboard = K8sDashboard()
+    k8s_dashboard = next(p for p in configuration.deployment_configuration.packages
+                         if p.name == K8sDashboard.name and p.namespace == namespace)
+
     is_installed = await k8s_dashboard.is_installed()
     resp = Status(
         installed=is_installed,

@@ -57,8 +57,9 @@ async def send_status(
         config: DynamicConfiguration,
         namespace: str
         ):
+    docdb = next(p for p in config.deployment_configuration.packages
+                 if p.name == DocDb.name and p.namespace == namespace)
 
-    docdb = DocDb()
     is_installed = await docdb.is_installed()
     if not is_installed:
         resp = Status(

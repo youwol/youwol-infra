@@ -55,7 +55,9 @@ async def send_status(
         namespace: str,
         config: DynamicConfiguration):
 
-    scylla = Scylla()
+    scylla = next(p for p in config.deployment_configuration.packages
+                  if p.name == Scylla.name and p.namespace == namespace)
+
     is_installed = await scylla.is_installed()
     cqlsh_url=f"http://localhost:{config.deployment_configuration.general.proxyPort}/api/v1/namespaces/" + \
               "kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/#/" + \

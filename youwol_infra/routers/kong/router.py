@@ -91,7 +91,9 @@ async def send_status(
         web_socket=WebSocketsStore.logs
         )
 
-    kong = Kong()
+    kong = next(p for p in config.deployment_configuration.packages
+                if p.name == Kong.name and p.namespace == namespace)
+
     is_installed = await kong.is_installed()
     resp = Status(
         installed=is_installed,

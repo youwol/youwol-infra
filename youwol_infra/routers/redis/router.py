@@ -45,7 +45,9 @@ async def send_status(
         namespace: str,
         config: DynamicConfiguration):
 
-    redis = Redis()
+    redis = next(p for p in config.deployment_configuration.packages
+                 if p.name == Redis.name and p.namespace == namespace)
+
     is_installed = await redis.is_installed()
     if not is_installed:
         resp = Status(

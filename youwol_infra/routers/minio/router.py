@@ -62,7 +62,9 @@ async def send_status(
         config: DynamicConfiguration
         ):
 
-    minio = Minio()
+    minio = next(p for p in config.deployment_configuration.packages
+                 if p.name == Minio.name and p.namespace == namespace)
+
     is_installed = await minio.is_installed()
     if not is_installed:
         resp = Status(

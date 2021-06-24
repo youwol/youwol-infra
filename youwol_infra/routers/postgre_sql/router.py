@@ -58,9 +58,11 @@ async def ws_endpoint(ws: WebSocket):
     await start_web_socket(ws)
 
 
-async def send_status(namespace: str, configuration: DynamicConfiguration):
+async def send_status(namespace: str, config: DynamicConfiguration):
 
-    postgre_sql = PostgreSQL()
+    postgre_sql = next(p for p in config.deployment_configuration.packages
+                       if p.name == PostgreSQL.name and p.namespace == namespace)
+
     is_installed = await postgre_sql.is_installed()
     resp = Status(
         installed=is_installed,
@@ -83,7 +85,7 @@ async def status(
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)
         ):
-    await send_status(namespace=namespace, configuration=config)
+    await send_status(namespace=namespace, config=config)
 
 
 @router.post("/{namespace}/install", summary="trigger install of PostgreSql component")
