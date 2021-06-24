@@ -1,4 +1,5 @@
 from youwol_infra.deployment_configuration import DeploymentConfiguration, General
+from youwol_infra.routers.cdn.router import CDN
 from youwol_infra.routers.docdb.router import DocDb
 from youwol_infra.routers.k8s_dashboard.router import K8sDashboard
 from youwol_infra.routers.kong.router import Kong
@@ -75,6 +76,17 @@ storage = Storage(
             }
         })
 
+cdn = CDN(
+    namespace='prod',
+    with_values={
+        "ingress": {
+            "hosts[0].host": f"gc.cdn.youwol.com"
+            },
+        "image": {
+            "tag": "0.2.10-master"
+            }
+        })
+
 
 async def configuration():
 
@@ -91,6 +103,7 @@ async def configuration():
             scylla,
             redis,
             docdb,
-            storage
+            storage,
+            cdn
             ]
         )
