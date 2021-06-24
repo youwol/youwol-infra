@@ -115,7 +115,7 @@ async def install(
 
 
 @router.post("/{namespace}/upgrade", summary="trigger upgrade of Storage component")
-async def install(
+async def upgrade(
         request: Request,
         namespace: str,
         body: HelmValues,
