@@ -71,6 +71,7 @@ async def icon():
 
 @router.get("/{namespace}/status", summary="trigger fetching status of k8s dashboard component")
 async def status(
+        request: Request,
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)):
     await send_status(namespace=namespace, configuration=config)

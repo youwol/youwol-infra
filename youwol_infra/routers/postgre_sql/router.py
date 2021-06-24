@@ -79,6 +79,7 @@ async def icon():
 
 @router.get("/{namespace}/status", summary="trigger fetching status of postgre SQL component")
 async def status(
+        request: Request,
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)
         ):
