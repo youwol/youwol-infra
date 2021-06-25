@@ -111,6 +111,7 @@ async def k8s_port_forward(namespace: str, service_name: str, target_port: Optio
     kill_k8s_proxy(local_port)
     # await context.info(text=cmd, json=to_json_response({service_name: service.to_dict()}))
     subprocess.Popen(cmd, shell=True)
+    await context.info(f"Port forward {namespace}#{service_name} using local port {local_port}")
 
 
 async def k8s_get_ingress(namespace: str, name: str) -> Optional[ExtensionsV1beta1Ingress]:
