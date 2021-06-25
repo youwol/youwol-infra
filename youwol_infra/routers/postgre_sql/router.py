@@ -1,8 +1,10 @@
+import asyncio
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, WebSocket, Depends
+from fastapi import APIRouter, Depends
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
@@ -13,7 +15,7 @@ from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_
 from youwol_infra.service_configuration import Configuration
 from youwol_infra.utils.sql_utils import sql_exec_commands
 from youwol_infra.utils.utils import to_json_response
-from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
+from youwol_infra.web_sockets import WebSocketsStore
 
 router = APIRouter()
 
@@ -49,15 +51,6 @@ class PostgreSQL(HelmPackage):
             )
 
 
-@router.websocket("/ws")
-async def ws_endpoint(ws: WebSocket):
-
-    await ws.accept()
-    WebSocketsStore.postgre_sql = ws
-    await WebSocketsStore.postgre_sql.send_json({})
-    await start_web_socket(ws)
-
-
 async def send_status(namespace: str, config: DynamicConfiguration):
 
     postgre_sql = next(p for p in config.deployment_configuration.packages
@@ -66,11 +59,11 @@ async def send_status(namespace: str, config: DynamicConfiguration):
     is_installed = await postgre_sql.is_installed()
     resp = Status(
         installed=is_installed,
-        namespace=namespace,
+        package=postgre_sql,
         sanity=Sanity.SANE if is_installed else None,
         pending=False
         )
-    await WebSocketsStore.postgre_sql.send_json(to_json_response(resp))
+    await WebSocketsStore.ws.send_json(to_json_response(resp))
 
 
 @router.get("/icon")
@@ -85,7 +78,7 @@ async def status(
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)
         ):
-    await send_status(namespace=namespace, config=config)
+    asyncio.ensure_future(send_status(namespace=namespace, config=config))
 
 
 @router.post("/{namespace}/install", summary="trigger install of PostgreSql component")
@@ -102,7 +95,7 @@ async def install(
         name='postgresql',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.postgre_sql,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
 
@@ -121,6 +114,6 @@ async def upgrade(
         name='postgresql',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.postgre_sql,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )

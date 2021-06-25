@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, Depends
 import uvicorn
 from starlette.responses import JSONResponse
 from starlette.requests import Request
+from starlette.websockets import WebSocket
 
 import routers.environment.router as environment
 import routers.logs.router as logs
@@ -19,6 +20,7 @@ import routers.common as helm
 
 from youwol_infra.dynamic_configuration import dynamic_config
 from youwol_infra.service_configuration import configuration, assert_python
+from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
 from youwol_utils import YouWolException, log_error
 
 
@@ -69,6 +71,15 @@ async def youwol_exception_handler(request: Request, exc: YouWolException):
 @app.get(configuration.base_path + "/healthz")
 async def healthz():
     return {"status": "youwol-infra ok"}
+
+
+@app.websocket(configuration.base_path + "/ws")
+async def ws_endpoint(ws: WebSocket):
+
+    await ws.accept()
+    WebSocketsStore.ws = ws
+    await WebSocketsStore.ws.send_json({})
+    await start_web_socket(ws)
 
 
 def main():

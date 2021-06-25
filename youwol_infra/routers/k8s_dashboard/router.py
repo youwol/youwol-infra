@@ -1,7 +1,8 @@
+import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from fastapi import APIRouter, WebSocket, Depends
+from fastapi import APIRouter, Depends
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
@@ -10,7 +11,7 @@ from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfigurat
 from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack
 from youwol_infra.utils.k8s_utils import k8s_namespaces
 from youwol_infra.utils.utils import to_json_response
-from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
+from youwol_infra.web_sockets import WebSocketsStore
 
 router = APIRouter()
 
@@ -29,7 +30,8 @@ class K8sDashboard(Deployment):
     path: Path = None
 
     async def is_installed(self):
-        return self.namespace in k8s_namespaces()
+        namespaces = await k8s_namespaces()
+        return self.namespace in namespaces
 
     def dashboard_url(self, proxy_port: int):
         base_url = f"http://localhost:{proxy_port}/api/v1/namespaces/{self.namespace}"
@@ -37,32 +39,21 @@ class K8sDashboard(Deployment):
         return f"{base_url}/services/https:{service}:/proxy/#/pod?namespace=_all"
 
 
-@router.websocket("/ws")
-async def ws_endpoint(ws: WebSocket):
+async def send_status(namespace: str, config: DynamicConfiguration):
 
-    await ws.accept()
-    WebSocketsStore.k8s_dashboard = ws
-    await WebSocketsStore.k8s_dashboard.send_json({})
-    # config = await dynamic_config()
-    # await send_status(configuration=config)
-    await start_web_socket(ws)
-
-
-async def send_status(namespace: str, configuration: DynamicConfiguration):
-
-    k8s_dashboard = next(p for p in configuration.deployment_configuration.packages
+    k8s_dashboard = next(p for p in config.deployment_configuration.packages
                          if p.name == K8sDashboard.name and p.namespace == namespace)
 
     is_installed = await k8s_dashboard.is_installed()
     resp = Status(
         installed=is_installed,
-        namespace=namespace,
+        package=k8s_dashboard,
         sanity=Sanity.SANE if is_installed else None,
         pending=False,
-        dashboardUrl=k8s_dashboard.dashboard_url(configuration.deployment_configuration.general.proxyPort),
-        accessToken=configuration.cluster_info.access_token
+        dashboardUrl=k8s_dashboard.dashboard_url(config.deployment_configuration.general.proxyPort),
+        accessToken=config.cluster_info.access_token
         )
-    await WebSocketsStore.k8s_dashboard.send_json(to_json_response(resp))
+    await WebSocketsStore.ws.send_json(to_json_response(resp))
 
 
 @router.get("/icon")
@@ -76,7 +67,8 @@ async def status(
         request: Request,
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)):
-    await send_status(namespace=namespace, configuration=config)
+
+    asyncio.ensure_future(send_status(namespace=namespace, config=config))
 
 
 @router.post("/{namespace}/install", summary="trigger install of DocDb component")
@@ -93,6 +85,6 @@ async def install(
         name='k8sDashboard',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.k8s_dashboard,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )

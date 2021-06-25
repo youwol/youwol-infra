@@ -1,7 +1,7 @@
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Optional, Callable, Awaitable
+from typing import Optional, Callable, Awaitable, Any
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
@@ -24,7 +24,7 @@ class Sanity(Enum):
 
 class StatusBase(BaseModel):
     installed: bool
-    namespace: str
+    package: Any # < this should be youwol_infra.deployment_models.Package
     sanity: Optional[Sanity]
     pending: bool
 
@@ -60,7 +60,7 @@ async def install_pack(
                 return
             resp = StatusBase(
                 installed=is_installed,
-                namespace=namespace,
+                package=package,
                 sanity=Sanity.SANE if is_installed else None,
                 pending=True
                 )
@@ -98,7 +98,7 @@ async def upgrade_pack(
                 installed=is_installed,
                 sanity=Sanity.SANE if is_installed else None,
                 pending=True,
-                namespace=namespace
+                package=package
                 )
             await channel_ws.send_json(to_json_response(resp))
             await package.upgrade(ctx)
@@ -140,5 +140,3 @@ async def chart(
                    if p.name == name and p.namespace == namespace)
 
     return FileResponse(package.chart_folder / rest_of_path)
-
-

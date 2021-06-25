@@ -1,8 +1,9 @@
+import asyncio
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from fastapi import APIRouter, WebSocket, Depends
+from fastapi import APIRouter, Depends
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
@@ -13,7 +14,7 @@ from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_
 from youwol_infra.service_configuration import Configuration
 from youwol_infra.utils.k8s_utils import k8s_create_secrets_if_needed, k8s_pod_exec
 from youwol_infra.utils.utils import to_json_response
-from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
+from youwol_infra.web_sockets import WebSocketsStore
 
 router = APIRouter()
 
@@ -41,15 +42,6 @@ class Scylla(HelmPackage):
         await super().install(context=context)
 
 
-@router.websocket("/ws")
-async def ws_endpoint(ws: WebSocket):
-
-    await ws.accept()
-    WebSocketsStore.scylla = ws
-    await WebSocketsStore.scylla.send_json({})
-    await start_web_socket(ws)
-
-
 async def send_status(
         request: Request,
         namespace: str,
@@ -65,22 +57,22 @@ async def send_status(
     if not is_installed:
         resp = Status(
             installed=is_installed,
-            namespace=namespace,
+            package=scylla,
             cqlsh_url=cqlsh_url,
             sanity=Sanity.SANE if is_installed else None,
             pending=False
             )
-        await WebSocketsStore.scylla.send_json(to_json_response(resp))
+        await WebSocketsStore.ws.send_json(to_json_response(resp))
         return
 
     resp = Status(
         installed=is_installed,
-        namespace=namespace,
+        package=scylla,
         cqlsh_url=cqlsh_url,
         sanity=Sanity.SANE if is_installed else None,
         pending=False
         )
-    await WebSocketsStore.scylla.send_json(to_json_response(resp))
+    await WebSocketsStore.ws.send_json(to_json_response(resp))
 
 
 @router.get("/icon")
@@ -95,7 +87,8 @@ async def status(
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)
         ):
-    await send_status(request=request, namespace=namespace, config=config)
+
+    asyncio.ensure_future(send_status(request=request, namespace=namespace, config=config))
 
 
 @router.post("/{namespace}/install", summary="trigger install of Scylla component")
@@ -112,7 +105,7 @@ async def install(
         name='scylla',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.scylla,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
 
@@ -131,7 +124,7 @@ async def upgrade(
         name='scylla',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.scylla,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
 
@@ -177,4 +170,3 @@ async def get_tables(
                  for line in tables[0][3:-2]]
 
     return {"tables": items}
-

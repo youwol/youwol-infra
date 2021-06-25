@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -64,20 +65,20 @@ async def send_status(
     if not is_installed:
         resp = Status(
             installed=is_installed,
-            namespace=namespace,
+            package=docdb,
             sanity=Sanity.SANE if is_installed else None,
             pending=False
             )
-        await WebSocketsStore.docdb.send_json(to_json_response(resp))
+        await WebSocketsStore.ws.send_json(to_json_response(resp))
         return
 
     resp = Status(
         installed=is_installed,
-        namespace=namespace,
+        package=docdb,
         sanity=Sanity.SANE if is_installed else None,
         pending=False
         )
-    await WebSocketsStore.docdb.send_json(to_json_response(resp))
+    await WebSocketsStore.ws.send_json(to_json_response(resp))
 
 
 @router.get("/icon")
@@ -92,7 +93,7 @@ async def status(
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)
         ):
-    await send_status(request=request, namespace=namespace, config=config)
+    asyncio.ensure_future(send_status(request=request, namespace=namespace, config=config))
 
 
 @router.post("/{namespace}/install", summary="trigger install of DocDb component")
@@ -109,7 +110,7 @@ async def install(
         name='docdb',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.docdb,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
 
@@ -128,6 +129,6 @@ async def upgrade(
         name='docdb',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.docdb,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )

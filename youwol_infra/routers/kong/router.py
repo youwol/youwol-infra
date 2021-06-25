@@ -1,9 +1,10 @@
+import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List
 
 import aiohttp
-from fastapi import APIRouter, WebSocket, Depends
+from fastapi import APIRouter, Depends
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
@@ -18,7 +19,7 @@ from youwol_infra.utils.k8s_utils import (
     )
 from youwol_infra.utils.sql_utils import sql_exec_commands
 from youwol_infra.utils.utils import to_json_response, get_port_number
-from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
+from youwol_infra.web_sockets import WebSocketsStore
 from youwol_utils import raise_exception_from_response
 
 router = APIRouter()
@@ -57,7 +58,7 @@ class Kong(HelmPackage):
 
         if self.namespace not in k8s_namespaces():
             context and await context.info(f"Create namespace {self.namespace}")
-            k8s_create_namespace(name=self.namespace)
+            await k8s_create_namespace(name=self.namespace)
 
         context and await context.info(f"Create secrets", json=to_json_response(self.secrets))
         await k8s_create_secrets_if_needed(namespace="api-gateway", secrets=self.secrets)
@@ -69,15 +70,6 @@ class Kong(HelmPackage):
             )
 
         await super().install(context)
-
-
-@router.websocket("/ws")
-async def ws_endpoint(ws: WebSocket):
-
-    await ws.accept()
-    WebSocketsStore.kong = ws
-    await WebSocketsStore.kong.send_json({})
-    await start_web_socket(ws)
 
 
 async def send_status(
@@ -97,14 +89,14 @@ async def send_status(
     is_installed = await kong.is_installed()
     resp = Status(
         installed=is_installed,
-        namespace=namespace,
+        package=kong,
         sanity=Sanity.SANE if is_installed else None,
         pending=False
         )
     if is_installed:
         await k8s_port_forward(namespace=namespace, service_name="api-kong-admin", target_port="kong-admin",
                                local_port=kong.kong_admin_port_fwd, context=context)
-    await WebSocketsStore.kong.send_json(to_json_response(resp))
+    await WebSocketsStore.ws.send_json(to_json_response(resp))
 
 
 @router.get("/icon")
@@ -119,7 +111,7 @@ async def status(
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)
         ):
-    await send_status(request=request, config=config, namespace=namespace)
+    asyncio.ensure_future(send_status(request=request, namespace=namespace, config=config))
 
 
 @router.post("/{namespace}/install", summary="trigger install of Kong component")
@@ -136,7 +128,7 @@ async def install(
         name='api',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.kong,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
 

@@ -8,17 +8,9 @@ from youwol_utils import log_info
 @dataclass(frozen=False)
 class WebSocketsStore:
 
+    ws: WebSocket = None
     environment: WebSocket = None
     logs: WebSocket = None
-    k8s_dashboard: WebSocket = None
-    postgre_sql: WebSocket = None
-    kong: WebSocket = None
-    minio: WebSocket = None
-    redis: WebSocket = None
-    scylla: WebSocket = None
-    docdb: WebSocket = None
-    storage: WebSocket = None
-    cdn: WebSocket = None
 
 
 async def start_web_socket(ws: WebSocket):

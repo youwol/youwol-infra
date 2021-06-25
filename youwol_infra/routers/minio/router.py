@@ -1,9 +1,10 @@
+import asyncio
 import base64
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, WebSocket, Depends
+from fastapi import APIRouter, Depends
 from kubernetes import client
 from starlette.requests import Request
 from starlette.responses import FileResponse
@@ -17,7 +18,7 @@ from youwol_infra.routers.common import (
 from youwol_infra.service_configuration import Configuration
 from youwol_infra.utils.k8s_utils import k8s_get_ingress
 from youwol_infra.utils.utils import to_json_response
-from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
+from youwol_infra.web_sockets import WebSocketsStore
 
 router = APIRouter()
 
@@ -41,15 +42,6 @@ class Minio(HelmPackage):
     with_values: dict = field(default_factory=lambda: {})
 
 
-@router.websocket("/ws")
-async def ws_endpoint(ws: WebSocket):
-
-    await ws.accept()
-    WebSocketsStore.minio = ws
-    await WebSocketsStore.minio.send_json({})
-    await start_web_socket(ws)
-
-
 @router.get("/icon")
 async def icon():
     path = Path(__file__).parent / 'minio.png'
@@ -66,30 +58,34 @@ async def send_status(
                  if p.name == Minio.name and p.namespace == namespace)
 
     is_installed = await minio.is_installed()
+
     if not is_installed:
         resp = Status(
             installed=is_installed,
-            namespace=namespace,
+            package=minio,
             sanity=Sanity.SANE if is_installed else None,
             pending=False,
             url=None,
             accessKey=None,
             secretKey=None
             )
-        await WebSocketsStore.minio.send_json(to_json_response(resp))
+        await WebSocketsStore.ws.send_json(to_json_response(resp))
         return
     ingress = await k8s_get_ingress(namespace=minio.namespace, name=minio.name)
+
+
     secret = client.CoreV1Api().read_namespaced_secret(name="minio", namespace=minio.namespace).data
+
     resp = Status(
         installed=is_installed,
-        namespace=namespace,
+        package=minio,
         sanity=Sanity.SANE if is_installed else None,
         pending=False,
         url=f"https://{ingress.spec.rules[0].host}",
         accessKey=base64.b64decode(secret["accesskey"]).decode('ascii'),
         secretKey=base64.b64decode(secret["secretkey"]).decode('ascii')
         )
-    await WebSocketsStore.minio.send_json(to_json_response(resp))
+    await WebSocketsStore.ws.send_json(to_json_response(resp))
 
 
 @router.get("/{namespace}/status", summary="trigger fetching status of Minio component")
@@ -98,7 +94,8 @@ async def status(
         namespace: str,
         config: DynamicConfiguration = Depends(dynamic_config)
         ):
-    await send_status(request=request, namespace=namespace, config=config)
+    asyncio.ensure_future(send_status(request=request, namespace=namespace, config=config))
+    #await send_status(request=request, namespace=namespace, config=config)
 
 
 @router.post("/{namespace}/install", summary="trigger install of Minio component")
@@ -115,7 +112,7 @@ async def install(
         name='minio',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.minio,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
 
@@ -134,6 +131,6 @@ async def upgrade(
         name='minio',
         namespace=namespace,
         helm_values=body.values,
-        channel_ws=WebSocketsStore.minio,
+        channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
