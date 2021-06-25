@@ -82,7 +82,7 @@ async def install(
     await install_pack(
         request=request,
         config=config,
-        name='k8sDashboard',
+        name=K8sDashboard.name,
         namespace=namespace,
         helm_values=body.values,
         channel_ws=WebSocketsStore.ws,
