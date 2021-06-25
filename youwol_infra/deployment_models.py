@@ -9,8 +9,8 @@ from typing import Optional
 
 from utils.helm_utils import helm_install, helm_list, helm_upgrade
 
-from kubernetes import client, utils
-
+# from kubernetes import client, utils
+from kubernetes_asyncio import client, utils
 from youwol_infra.context import Context
 
 
@@ -47,7 +47,7 @@ class Deployment(Package):
                 path_tmp
                 )
         try:
-            utils.create_from_yaml(client.ApiClient(), str(path_tmp))
+            await utils.create_from_yaml(client.ApiClient(), str(path_tmp))
         finally:
             if not self.path:
                 os.remove(path_tmp)
