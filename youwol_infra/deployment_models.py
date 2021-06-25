@@ -86,7 +86,8 @@ class HelmPackage(Package):
             context=context)
 
     async def is_installed(self):
-        names = [r.name for r in helm_list(namespace=self.namespace)]
+        helm_packages = await helm_list(namespace=self.namespace)
+        names = [r.name for r in helm_packages]
         return self.name in names
 
     @staticmethod

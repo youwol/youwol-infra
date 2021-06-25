@@ -21,14 +21,14 @@ class Resource(NamedTuple):
     app_version: str
 
 
-def helm_list(namespace: str = None, selector: Selector = None):
+async def helm_list(namespace: str = None, selector: Selector = None):
     cmd = "helm list"
     if namespace:
         cmd += f" --namespace {namespace}"
     if selector and selector.name:
         cmd += f" --selector name={selector.name}"
 
-    output = os.popen(cmd).read()
+    outputs, errors = await exec_command(cmd) # output = os.popen(cmd).read()
 
     def to_resource(line):
         elements = line.split("\t")
@@ -41,7 +41,7 @@ def helm_list(namespace: str = None, selector: Selector = None):
             chart=elements[5].strip(),
             app_version=elements[6]
             )
-    return [to_resource(line) for line in output.split("\n")[1:] if line]
+    return [to_resource(line) for line in outputs[1:] if line]
 
 
 async def helm_install(release_name: str, namespace: str, values_file: Path, chart_folder: Path,
