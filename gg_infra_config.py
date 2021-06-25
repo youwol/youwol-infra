@@ -2,6 +2,7 @@ from youwol_infra.deployment_configuration import DeploymentConfiguration, Gener
 from youwol_infra.routers.cdn.router import CDN
 from youwol_infra.routers.docdb.router import DocDb
 from youwol_infra.routers.k8s_dashboard.router import K8sDashboard
+from youwol_infra.routers.keycloak.router import Keycloak
 from youwol_infra.routers.kong.router import Kong
 from youwol_infra.routers.minio.router import Minio
 from youwol_infra.routers.postgre_sql.router import PostgreSQL
@@ -25,7 +26,12 @@ kong = Kong(
          "proxy": {
              "loadBalancerIP": "104.199.0.92"
              }
-         }
+         },
+    acme_hosts=[
+        "gc.auth.youwol.com",
+        "gc.cdn.youwol.com",
+        "gc.platform.youwol.com"
+        ]
     )
 
 minio = Minio(
@@ -53,6 +59,14 @@ scylla = Scylla(
     )
 
 redis = Redis()
+
+keycloak = Keycloak(
+    with_values={
+        "ingress": {
+            "rules[0].host": "gc.auth.youwol.com"
+            },
+        "extraenv[4].value": "https://gc.auth.youwol.com/auth"
+        })
 
 docdb = DocDb(
     namespace='prod',
@@ -102,6 +116,7 @@ async def configuration():
             minio,
             scylla,
             redis,
+            keycloak,
             docdb,
             storage,
             cdn
