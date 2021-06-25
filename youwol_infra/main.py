@@ -15,6 +15,7 @@ import routers.docdb.router as docdb
 import routers.storage.router as storage
 import routers.redis.router as redis
 import routers.cdn.router as cdn
+import routers.keycloak.router as keycloak
 import routers.common as helm
 
 
@@ -51,6 +52,7 @@ app.include_router(docdb.router, prefix=configuration.base_path+"/docdb", tags=[
 app.include_router(storage.router, prefix=configuration.base_path+"/storage", tags=["Storage"])
 app.include_router(redis.router, prefix=configuration.base_path+"/redis", tags=["Redis"])
 app.include_router(cdn.router, prefix=configuration.base_path+"/cdn", tags=["CDN"])
+app.include_router(keycloak.router, prefix=configuration.base_path+"/keycloak", tags=["keycloak"])
 app.include_router(helm.router, prefix=configuration.base_path+"/helm", tags=["Helm"])
 
 
