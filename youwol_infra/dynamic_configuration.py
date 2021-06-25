@@ -91,7 +91,6 @@ async def dynamic_config() -> DynamicConfiguration:
     return await DynamicConfigurationFactory.get()
 
 
-
 class CheckConfPath(Check):
     name: str = "Configuration path exist?"
 
@@ -245,7 +244,7 @@ async def get_api_gateway_ip() -> Optional[str]:
 
 
 async def get_cluster_info(k8s_config: DeploymentConfiguration) -> Optional[ClusterInfo]:
-    access_token = k8s_access_token()
+    access_token = await k8s_access_token()
 
     try:
         nodes = k8s.client.CoreV1Api().list_node(_request_timeout=2)

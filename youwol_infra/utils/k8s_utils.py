@@ -9,24 +9,35 @@ from psutil import process_iter
 
 from .utils import exec_command, to_json_response, get_port_number
 from kubernetes import client
+from kubernetes_asyncio import client as k8s_async_client, config as k8s_async_config
+from kubernetes_asyncio.client.api_client import ApiClient
 
 from ..context import Context
 
 
-def k8s_access_token():
-    return client.CoreV1Api().api_client.configuration.api_key['authorization'].strip('Bearer').strip()
+async def k8s_access_token():
+    await k8s_async_config.load_kube_config()
+    api_key = k8s_async_client.CoreV1Api().api_client.configuration.api_key
+    return api_key['authorization'].strip('Bearer').strip()
+    # api_key = client.CoreV1Api().api_client.configuration.api_key['authorization'].strip('Bearer').strip()
 
 
-def k8s_namespaces() -> List[str]:
-    namespaces = client.CoreV1Api().list_namespace()
-    names = [n.metadata.name for n in namespaces.items]
-    return names
+async def k8s_namespaces() -> List[str]:
+
+    async with ApiClient() as api:
+        v1 = client.CoreV1Api(api)
+        namespaces = await v1.list_namespace()
+        names = [n.metadata.name for n in namespaces.items]
+        return names
 
 
-def k8s_secrets(namespace: str) -> List[str]:
-    secrets = client.CoreV1Api().list_namespaced_secret(namespace)
-    names = [n.metadata.name for n in secrets.items]
-    return names
+async def k8s_secrets(namespace: str) -> List[str]:
+
+    async with ApiClient() as api:
+        v1 = client.CoreV1Api(api)
+        secrets = await v1.list_namespaced_secret(namespace)
+        names = [n.metadata.name for n in secrets.items]
+        return names
 
 
 def k8s_create_secret(namespace: str, file_path: Path):
@@ -36,21 +47,27 @@ def k8s_create_secret(namespace: str, file_path: Path):
 
 
 async def k8s_create_secrets_if_needed(namespace: str, secrets: Dict[str, Path], context: Context = None):
-    existing = k8s_secrets(namespace=namespace)
+    existing = await k8s_secrets(namespace=namespace)
     needed = [k for k in secrets.keys() if k not in existing]
     for name in needed:
         context and await context.info(f"Create secret {name} in namespace {namespace}")
         k8s_create_secret(namespace=namespace, file_path=secrets[name])
 
 
-def k8s_create_namespace(name: str):
-    client.CoreV1Api().create_namespace(body=V1Namespace(metadata=dict(name=name)))
+async def k8s_create_namespace(name: str):
+
+    async with ApiClient() as api:
+        v1 = client.CoreV1Api(api)
+        await v1.create_namespace(body=V1Namespace(metadata=dict(name=name)))
 
 
 async def k8s_get_service(namespace: str, name: str) -> Optional[V1Service]:
-    services = client.CoreV1Api().list_namespaced_service(namespace).items
-    service = next((s for s in services if s.metadata.name == name), None)
-    return service
+
+    async with ApiClient() as api:
+        v1 = client.CoreV1Api(api)
+        services = await v1.list_namespaced_service(namespace)
+        service = next((s for s in services.items if s.metadata.name == name), None)
+        return service
 
 
 async def k8s_pod_exec(pod_name: str, namespace: str, commands: List[str], context: Context = None):
@@ -92,7 +109,6 @@ async def k8s_port_forward(namespace: str, service_name: str, target_port: Optio
 
     cmd = f"kubectl port-forward -n {namespace} service/{service_name} {local_port}:{port_number}"
     kill_k8s_proxy(local_port)
-    print(cmd)
     # await context.info(text=cmd, json=to_json_response({service_name: service.to_dict()}))
     subprocess.Popen(cmd, shell=True)
 
