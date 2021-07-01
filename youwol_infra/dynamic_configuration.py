@@ -2,8 +2,9 @@ import pprint
 import subprocess
 import sys
 import traceback
+from datetime import datetime
 from pathlib import Path
-from typing import List, Union, Optional
+from typing import List, Union, Optional, NamedTuple, Dict, Any
 import kubernetes as k8s
 from pydantic import BaseModel, ValidationError
 from urllib3.exceptions import NewConnectionError, ConnectTimeoutError, MaxRetryError
@@ -12,6 +13,22 @@ from youwol_infra.context import Context
 from youwol_infra.deployment_configuration import DeploymentConfiguration, ClusterInfo
 from youwol_infra.utils.k8s_utils import k8s_access_token, k8s_get_service, kill_k8s_proxy
 from youwol_infra.service_configuration import get_service_config
+from youwol_infra.utils.utils import parse_json, get_client_credentials
+
+
+class DeadlinedCache(NamedTuple):
+
+    value: any
+    deadline: float
+    dependencies: Dict[str, str]
+
+    def is_valid(self, dependencies) -> bool:
+
+        for k, v in self.dependencies.items():
+            if k not in dependencies or dependencies[k] != v:
+                return False
+        margin = self.deadline - datetime.timestamp(datetime.now())
+        return margin > 0
 
 
 class DynamicConfiguration(BaseModel):
@@ -19,6 +36,47 @@ class DynamicConfiguration(BaseModel):
     config_filepath: Path
     deployment_configuration: DeploymentConfiguration
     cluster_info: Union[None, ClusterInfo]
+
+    tokensCache: List[Any] = []
+
+    async def get_client_credentials(self, client_id: str, scope: str, context: Context, use_cache=True):
+
+        secret_path = self.deployment_configuration.general.secretsFolder / "keycloak" / (client_id+".json")
+        openid_host = self.deployment_configuration.general.openIdHost
+        dependencies = {
+            "client_id": client_id,
+            "secret_path": secret_path,
+            "openid_host": openid_host,
+            "type": "auth_token"
+            }
+        cached_token = next((c for c in self.tokensCache if c.is_valid(dependencies)), None)
+        if use_cache and cached_token:
+            return cached_token.value
+
+        secrets = parse_json(secret_path)
+
+        try:
+            access_token = await get_client_credentials(
+                client_id=secrets['clientId'],
+                client_secret=secrets['clientSecret'],
+                openid_host=openid_host,
+                scope=scope
+                )
+        except Exception as e:
+            raise RuntimeError(f"Can not authorize client {client_id} (using secret {str(secret_path)})" +
+                               f". Got error: {e}")
+
+        deadline = datetime.timestamp(datetime.now()) + 1 * 60 * 60 * 1000
+        self.tokensCache.append(DeadlinedCache(value=access_token, deadline=deadline, dependencies=dependencies))
+
+        await context.info(text="Client credentials retrieved",
+                           json={"openIdHost": openid_host,
+                                 "clientId": client_id,
+                                 "access_token": access_token,
+                                 "scope": scope
+                                 }
+                           )
+        return access_token
 
 
 class ErrorResponse(BaseModel):

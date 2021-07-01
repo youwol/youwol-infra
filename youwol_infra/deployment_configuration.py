@@ -14,6 +14,7 @@ class ClusterInfo(BaseModel):
 class General(BaseModel):
     contextName: str
     proxyPort: int
+    openIdHost: str
 
 
 class DeploymentConfiguration(BaseModel):
