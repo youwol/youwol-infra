@@ -5,15 +5,13 @@ from typing import List
 
 import aiohttp
 from fastapi import APIRouter, Depends
-# from kubernetes_asyncio import utils as k8s_utils, client as k8s_client
-from kubernetes_asyncio import utils as k8s_utils, client as k8s_client
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
 from youwol_infra.context import Context
 from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
-from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack
+from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack, upgrade_pack
 from youwol_infra.service_configuration import Configuration
 from youwol_infra.utils.k8s_utils import (
     k8s_namespaces, k8s_create_namespace, k8s_create_secrets_if_needed,
@@ -82,6 +80,7 @@ class Kong(HelmPackage):
         await k8s_create_secrets_if_needed(namespace="api-gateway", secrets=self.secrets)
         await super().upgrade(context)
 
+
 async def send_status(
         request: Request,
         config: DynamicConfiguration,
@@ -133,6 +132,25 @@ async def install(
         ):
 
     await install_pack(
+        request=request,
+        config=config,
+        name='api',
+        namespace=namespace,
+        helm_values=body.values,
+        channel_ws=WebSocketsStore.ws,
+        finally_action=lambda: status(request, namespace, config)
+        )
+
+
+@router.post("/{namespace}/upgrade", summary="trigger upgrade of Kong component")
+async def upgrade(
+        request: Request,
+        namespace: str,
+        body: HelmValues,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+
+    await upgrade_pack(
         request=request,
         config=config,
         name='api',
