@@ -17,6 +17,7 @@ import routers.redis.router as redis
 import routers.cdn.router as cdn
 import routers.keycloak.router as keycloak
 import routers.assets_backend.router as assets_backend
+import routers.assets_gateway.router as assets_gateway
 import routers.common as helm
 
 
@@ -55,6 +56,7 @@ app.include_router(redis.router, prefix=configuration.base_path+"/redis", tags=[
 app.include_router(cdn.router, prefix=configuration.base_path+"/cdn", tags=["CDN"])
 app.include_router(keycloak.router, prefix=configuration.base_path+"/keycloak", tags=["keycloak"])
 app.include_router(assets_backend.router, prefix=configuration.base_path+"/assets-backend", tags=["assets-backend"])
+app.include_router(assets_gateway.router, prefix=configuration.base_path+"/assets-gateway", tags=["assets-gateway"])
 app.include_router(helm.router, prefix=configuration.base_path+"/helm", tags=["Helm"])
 
 
