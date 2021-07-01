@@ -33,6 +33,7 @@ class DocDb(HelmPackage):
     chart_folder: Path = Configuration.services_folder / "docdb" / "chart"
     with_values: dict = field(default_factory=lambda: {})
 
+    docdb_port_fwd = get_port_number(name='docdb', ports_range=(2000, 3000))
 
 
 @router.websocket("/ws")
@@ -49,6 +50,13 @@ async def send_status(
         config: DynamicConfiguration,
         namespace: str
         ):
+
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
+
     docdb = next(p for p in config.deployment_configuration.packages
                  if p.name == DocDb.name and p.namespace == namespace)
 
@@ -62,6 +70,9 @@ async def send_status(
             )
         await WebSocketsStore.ws.send_json(to_json_response(resp))
         return
+
+    await k8s_port_forward(namespace=namespace, service_name="docdb", target_port='http',
+                           local_port=docdb.docdb_port_fwd, context=context)
 
     resp = Status(
         installed=is_installed,
