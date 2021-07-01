@@ -21,6 +21,7 @@ import routers.assets_backend.router as assets_backend
 import routers.assets_gateway.router as assets_gateway
 import routers.flux_backend.router as flux_backend
 import routers.front_api.router as front_api
+import routers.workspace_explorer.router as workspace_explorer
 import routers.flux_builder.router as flux_builder
 import routers.flux_runner.router as flux_runner
 import routers.common as helm
@@ -67,6 +68,8 @@ app.include_router(assets_gateway.router, prefix=configuration.base_path+"/asset
 app.include_router(front_api.router, prefix=configuration.base_path+"/front-api", tags=["front_api"])
 app.include_router(flux_builder.router, prefix=configuration.base_path+"/flux-builder", tags=["flux-builder"])
 app.include_router(flux_runner.router, prefix=configuration.base_path+"/flux-runner", tags=["flux-runner"])
+app.include_router(workspace_explorer.router, prefix=configuration.base_path+"/workspace-explorer",
+                   tags=["workspace-explorer"])
 app.include_router(helm.router, prefix=configuration.base_path+"/helm", tags=["Helm"])
 
 
