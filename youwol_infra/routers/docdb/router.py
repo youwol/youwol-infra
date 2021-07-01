@@ -2,7 +2,9 @@ import asyncio
 from dataclasses import dataclass, field
 from pathlib import Path
 
+import aiohttp
 from fastapi import APIRouter, WebSocket, Depends
+from pydantic import BaseModel
 from starlette.requests import Request
 from starlette.responses import FileResponse
 
@@ -11,9 +13,10 @@ from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
 from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack, upgrade_pack
 from youwol_infra.service_configuration import Configuration
-from youwol_infra.utils.k8s_utils import k8s_create_secrets_if_needed
-from youwol_infra.utils.utils import to_json_response
+from youwol_infra.utils.k8s_utils import k8s_create_secrets_if_needed, k8s_port_forward
+from youwol_infra.utils.utils import to_json_response, get_port_number, get_aiohttp_session
 from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
+from youwol_utils import raise_exception_from_response, QueryBody
 
 router = APIRouter()
 
@@ -134,3 +137,125 @@ async def upgrade(
         channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
+
+
+@router.get("/{namespace}/keyspaces", summary="list keyspaces")
+async def get_keyspaces(
+        request: Request,
+        namespace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
+    docdb = next(p for p in config.deployment_configuration.packages
+                 if p.name == DocDb.name and p.namespace == namespace)
+
+    url = f"http://127.0.0.1:{docdb.docdb_port_fwd}/api/v0-alpha1/keyspaces"
+
+    async with context.start(action=f"Get docdb keyspaces list",
+                             json={"url": url, "namespace": namespace}) as ctx:
+        access_token = await config.get_client_credentials(
+            client_id="youwol-dev",
+            scope="email profile youwol_dev",
+            context=ctx
+            )
+        headers = {
+            "authorization": f"Bearer {access_token}"
+            }
+
+        async with get_aiohttp_session() as session:
+            async with await session.get(url=url, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return {"keyspaces": data}
+                await raise_exception_from_response(resp, url=url)
+
+
+@router.get("/{namespace}/keyspaces/{keyspace}/tables", summary="list keyspaces")
+async def get_tables(
+        request: Request,
+        namespace: str,
+        keyspace: str,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
+    docdb = next(p for p in config.deployment_configuration.packages
+                 if p.name == DocDb.name and p.namespace == namespace)
+    url = f"http://127.0.0.1:{docdb.docdb_port_fwd}/api/v0-alpha1/{keyspace}/tables"
+
+    async with context.start(
+            action=f"Get docdb table list",
+            json={"url": url, "namespace": namespace, "keyspace": keyspace}) as ctx:
+
+        access_token = await config.get_client_credentials(
+            client_id="youwol-dev",
+            scope="email profile youwol_dev",
+            context=ctx
+            )
+        headers = {
+            "authorization": f"Bearer {access_token}"
+            }
+
+        async with get_aiohttp_session() as session:
+            async with await session.get(url=url, headers=headers) as resp:
+                if resp.status == 200:
+                    data = await resp.json()
+                    return {"tables": data}
+                await raise_exception_from_response(resp, url=url)
+
+
+class Query(BaseModel):
+    queryStr: str
+
+
+@router.post("/{namespace}/keyspaces/{keyspace}/tables/{table}/query", summary="list keyspaces")
+async def query_table(
+        request: Request,
+        namespace: str,
+        keyspace: str,
+        table: str,
+        body: Query,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
+    docdb = next(p for p in config.deployment_configuration.packages
+                 if p.name == DocDb.name and p.namespace == namespace)
+    url = f"http://127.0.0.1:{docdb.docdb_port_fwd}/api/v0-alpha1/{keyspace}/{table}/query"
+    query_body = QueryBody.parse(body.queryStr)
+    async with context.start(
+            action=f"Query docdb table",
+            json={"url": url, "namespace": namespace, "keyspace": keyspace, "table": table, "query": body.queryStr,
+                  "query_body": query_body.dict()
+                  }
+            ) as ctx:
+
+        access_token = await config.get_client_credentials(
+            client_id="youwol-dev",
+            scope="email profile youwol_dev",
+            context=ctx
+            )
+        headers = {
+            "authorization": f"Bearer {access_token}"
+            }
+        params = {"owner": "/youwol-users"}
+
+        async with get_aiohttp_session() as session:
+            async with await session.post(url=url, json=query_body.dict(), params=params, headers=headers) as resp:
+                if resp.status == 200:
+                    resp = await resp.json()
+                    return {"documents": resp["documents"][0:query_body.max_results],
+                            "tableName": table
+                            }
+
+                await raise_exception_from_response(resp, url=url)
