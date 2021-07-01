@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Optional, List, Any
 from pydantic import BaseModel
 
@@ -14,6 +15,7 @@ class ClusterInfo(BaseModel):
 class General(BaseModel):
     contextName: str
     proxyPort: int
+    secretsFolder: Path
     openIdHost: str
 
 
