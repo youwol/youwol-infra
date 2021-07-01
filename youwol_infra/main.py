@@ -20,6 +20,7 @@ import routers.treedb_backend.router as treedb_backend
 import routers.assets_backend.router as assets_backend
 import routers.assets_gateway.router as assets_gateway
 import routers.flux_backend.router as flux_backend
+import routers.front_api.router as front_api
 import routers.flux_builder.router as flux_builder
 import routers.flux_runner.router as flux_runner
 import routers.common as helm
@@ -63,6 +64,7 @@ app.include_router(treedb_backend.router, prefix=configuration.base_path+"/treed
 app.include_router(assets_backend.router, prefix=configuration.base_path+"/assets-backend", tags=["assets-backend"])
 app.include_router(flux_backend.router, prefix=configuration.base_path+"/flux-backend", tags=["flux-backend"])
 app.include_router(assets_gateway.router, prefix=configuration.base_path+"/assets-gateway", tags=["assets-gateway"])
+app.include_router(front_api.router, prefix=configuration.base_path+"/front-api", tags=["front_api"])
 app.include_router(flux_builder.router, prefix=configuration.base_path+"/flux-builder", tags=["flux-builder"])
 app.include_router(flux_runner.router, prefix=configuration.base_path+"/flux-runner", tags=["flux-runner"])
 app.include_router(helm.router, prefix=configuration.base_path+"/helm", tags=["Helm"])
