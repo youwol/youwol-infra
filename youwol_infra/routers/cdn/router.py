@@ -32,15 +32,6 @@ class CDN(HelmPackage):
     chart_folder: Path = Configuration.services_folder / "cdn-backend" / "chart"
     with_values: dict = field(default_factory=lambda: {})
 
-    secrets: dict = field(default_factory=lambda: {
-        "youwol-auth": Configuration.secrets_folder / "youwol-auth.yaml"
-        })
-
-    async def install(self, context: Context = None):
-
-        await k8s_create_secrets_if_needed(namespace=self.namespace, secrets=self.secrets, context=context)
-        await super().install(context=context)
-
 
 async def send_status(
         request: Request,

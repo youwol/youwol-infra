@@ -76,6 +76,11 @@ class Kong(HelmPackage):
 
         await super().install(context)
 
+    async def upgrade(self, context: Context = None):
+
+        context and await context.info(f"Create secrets", json=to_json_response(self.secrets))
+        await k8s_create_secrets_if_needed(namespace="api-gateway", secrets=self.secrets)
+        await super().upgrade(context)
 
 async def send_status(
         request: Request,

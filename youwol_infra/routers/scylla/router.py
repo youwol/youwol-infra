@@ -32,15 +32,6 @@ class Scylla(HelmPackage):
     chart_folder: Path = Configuration.charts_folder / "scylladb"
     with_values: dict = field(default_factory=lambda: {})
 
-    secrets: dict = field(default_factory=lambda: {
-        "gitlab-docker": Configuration.secrets_folder / "gitlab-docker.yaml"
-        })
-
-    async def install(self, context: Context = None):
-
-        await k8s_create_secrets_if_needed(namespace="infra", secrets=self.secrets)
-        await super().install(context=context)
-
 
 async def send_status(
         request: Request,
