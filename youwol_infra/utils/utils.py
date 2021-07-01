@@ -6,6 +6,8 @@ from enum import Enum
 from pathlib import Path, PosixPath
 from typing import Union, Mapping, List, Callable, Any
 
+import aiohttp
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from youwol_infra.context import Context
@@ -102,46 +104,14 @@ def to_json_response(obj: Union[BaseModel, dict]) -> JSON:
         return result
 
     return to_json_rec(b)
-# def to_json_response(obj: Union[BaseModel, dict]) -> JSON:
-#
-#     def to_serializable(v):
-#         if isinstance(v, Path):
-#             return str(v)
-#         if isinstance(v, PosixPath):
-#             return str(v)
-#         if isinstance(v, Callable):
-#             return "function"
-#         if isinstance(v, Enum):
-#             return v.name
-#         if isinstance(v, datetime):
-#             return str(v)
-#         return v
-#
-#     base = obj.dict() if isinstance(obj, BaseModel) else obj
-#     target = {}
-#
-#     def to_json_rec(_obj: Any, target):
-#
-#         if isinstance(_obj, dict):
-#             for k, v in _obj.items():
-#                 keyCC = to_camel_case(k)
-#                 if not isinstance(v, dict) and not isinstance(v, list):
-#                     target[keyCC] = to_serializable(v)
-#                 if isinstance(v, dict):
-#                     target[keyCC] = {}
-#                     to_json_rec(v, target[keyCC])
-#                 if isinstance(v, list):
-#                     target[keyCC] = []
-#                     for i, e in enumerate(v):
-#                         if not isinstance(e, dict) and not isinstance(e, list):
-#                             target[keyCC].append(to_serializable(e))
-#                         else:
-#                             child = {}
-#                             to_json_rec(e, child)
-#                             target[keyCC].append(child)
-#
-#     to_json_rec(base, target)
-#     return target
+
+
+def parse_json(path: Union[str, Path]):
+    return json.loads(open(str(path)).read())
+
+
+def write_json(data: json, path: Path):
+    open(str(path), 'w').write(json.dumps(data, indent=4))
 
 
 def get_port_number(name: str, ports_range: (int, int)):
@@ -149,3 +119,31 @@ def get_port_number(name: str, ports_range: (int, int)):
     port = functools.reduce(lambda acc, e: acc + ord(e), name, 0)
     # need to check if somebody is already listening
     return ports_range[0] + port % (ports_range[1]-ports_range[0])
+
+
+def get_aiohttp_session(verify_ssl: bool = False, total_timeout: int = 5):
+    return aiohttp.ClientSession(
+            connector=aiohttp.TCPConnector(verify_ssl=verify_ssl),
+            timeout=aiohttp.ClientTimeout(total=total_timeout)
+        )
+
+
+async def get_client_credentials(
+        openid_host,
+        client_id: str,
+        client_secret: str,
+        scope: str):
+
+    form = aiohttp.FormData()
+    form.add_field("client_id", client_id)
+    form.add_field("client_secret", client_secret)
+    form.add_field("grant_type", "client_credentials")
+    form.add_field("scope", scope)
+    url = f"https://{openid_host}/auth/realms/youwol/protocol/openid-connect/token"
+    async with get_aiohttp_session() as session:
+        async with await session.post(url=url, data=form) as resp:
+            if resp.status != 200:
+                raise HTTPException(status_code=resp.status, detail=await resp.read())
+            resp = await resp.json()
+            return resp['access_token']
+
