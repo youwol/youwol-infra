@@ -3,7 +3,7 @@ import itertools
 import os
 import urllib.request
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
@@ -12,6 +12,7 @@ from utils.helm_utils import helm_install, helm_list, helm_upgrade
 # from kubernetes import client, utils
 from kubernetes_asyncio import client, utils
 from youwol_infra.context import Context
+from youwol_infra.utils.k8s_utils import k8s_create_secrets_if_needed
 
 
 @dataclass
@@ -58,15 +59,18 @@ class HelmPackage(Package):
 
     chart_folder: Path
     with_values: dict
+    values_filename: str = 'values.yaml'
+    secrets: dict = field(default_factory=lambda: {})
 
     async def install(self, context: Context = None):
 
+        await k8s_create_secrets_if_needed(namespace=self.namespace, secrets=self.secrets, context=context)
         keys = HelmPackage.flatten_schema_values(self.with_values)
         args = functools.reduce(lambda acc, e: acc + f"--set {e[1:]} ", keys, "")
         await helm_install(
             release_name=self.name,
             namespace=self.namespace,
-            values_file=self.chart_folder / 'values.yaml',
+            values_file=self.chart_folder / self.values_filename,
             chart_folder=Path(self.chart_folder),
             timeout=240,
             args=args,
@@ -74,12 +78,13 @@ class HelmPackage(Package):
 
     async def upgrade(self, context: Context = None):
 
+        await k8s_create_secrets_if_needed(namespace=self.namespace, secrets=self.secrets, context=context)
         keys = HelmPackage.flatten_schema_values(self.with_values)
         args = functools.reduce(lambda acc, e: acc + f"--set {e[1:]} ", keys, "")
         await helm_upgrade(
             release_name=self.name,
             namespace=self.namespace,
-            values_file=self.chart_folder / 'values.yaml',
+            values_file=self.chart_folder / self.values_filename,
             chart_folder=Path(self.chart_folder),
             timeout=240,
             args=args,
