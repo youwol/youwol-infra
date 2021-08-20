@@ -1,3 +1,4 @@
 scripts/.virtualenv
 **/__pycache__/**
 .idea
+venvs/
