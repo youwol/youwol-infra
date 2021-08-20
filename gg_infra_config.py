@@ -28,13 +28,28 @@ secrets_folder: Path = platform_folder / "secrets" / "gc"
 
 open_id_host = "gc.auth.youwol.com"
 
+versions = {
+    "DocDb": "0.3.42",
+    "Storage": "0.2.13",
+    "CDN": "0.2.11",
+    "TreedbBackend": "0.3.7",
+    "AssetsBackend": "0.3.7",
+    "FluxBackend": "0.1.9",
+    "AssetsGateway": "1.1.28",
+    "FrontApi": "0.1.8",
+    "WorkspaceExplorer": "0.0.3",
+    "FluxBuilder": "0.0.10",
+    "FluxRunner": "0.0.5",
+    "Network": "0.0.1"
+    }
+
 
 def get_ingress(developers_only: bool, host: str = "gc.platform.youwol.com"):
     return {
-        "hosts[0].host": host,
-        "annotations": {
-            "konghq.com/plugins": "oidc-dev" if developers_only else "oidc-user"
-            }
+        "hosts[0].host": host
+        # "annotations": {
+        #    "konghq.com/plugins": "oidc-dev" if developers_only else "oidc-user"
+        #    }
         }
 
 
@@ -109,7 +124,7 @@ docdb = DocDb(
             },
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/docdb",
-            "tag": "0.3.42"
+            "tag": versions["DocDb"]
             },
         "imagePullSecrets[0].name": "gitlab-docker"
         },
@@ -128,7 +143,7 @@ storage = Storage(
             },
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/storage",
-            "tag": "0.2.13"
+            "tag": versions["Storage"]
             },
         "imagePullSecrets[0].name": "gitlab-docker"
         },
@@ -144,7 +159,7 @@ cdn = CDN(
         "ingress": get_ingress(developers_only=True, host="gc.cdn.youwol.com"),
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/cdn-backend",
-            "tag": "0.2.11"
+            "tag": versions["CDN"]
             },
         "imagePullSecrets[0].name": "gitlab-docker",
         "keycloak": {
@@ -163,7 +178,7 @@ treedb = TreedbBackend(
     with_values={
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/treedb-backend",
-            "tag": "0.3.7"
+            "tag": versions["TreedbBackend"]
             },
         "imagePullSecrets[0].name": "gitlab-docker",
         "ingress": get_ingress(developers_only=True),
@@ -182,7 +197,7 @@ assets_backend = AssetsBackend(
     with_values={
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/assets-backend",
-            "tag": "0.3.7"
+            "tag": versions["AssetsBackend"]
             },
         "imagePullSecrets[0].name": "gitlab-docker",
         "ingress": get_ingress(developers_only=True),
@@ -201,7 +216,7 @@ flux_backend = FluxBackend(
     with_values={
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/flux-backend",
-            "tag": "0.1.8"
+            "tag": versions["FluxBackend"]
             },
         "imagePullSecrets[0].name": "gitlab-docker",
         "ingress": get_ingress(developers_only=True),
@@ -220,7 +235,7 @@ assets_gateway = AssetsGateway(
     with_values={
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/assets-gateway",
-            "tag": "1.1.25"
+            "tag": versions["AssetsGateway"]
             },
         "imagePullSecrets[0].name": "gitlab-docker",
         "ingress": get_ingress(developers_only=False),
@@ -240,7 +255,7 @@ front_api = FrontApi(
     with_values={
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/front-api",
-            "tag": "0.1.8"
+            "tag": versions["FrontApi"]
             },
         "imagePullSecrets[0].name": "gitlab-docker",
         "ingress": {"hosts[0].host": "gc.platform.youwol.com"}
@@ -255,7 +270,7 @@ workspace_explorer = WorkspaceExplorer(
     with_values={
         "image": {
             "repository": "registry.gitlab.com/youwol/platform/workspace-explorer",
-            "tag": "0.0.3"
+            "tag": versions["WorkspaceExplorer"]
             },
         "imagePullSecrets[0].name": "gitlab-docker",
         "ingress": {"hosts[0].host": "gc.platform.youwol.com"}
@@ -270,7 +285,7 @@ flux_builder = FluxBuilder(
     values_filename='values-gc.yaml',
     with_values={
         "image": {
-            "tag": "0.0.6"
+            "tag": versions["FluxBuilder"]
             }
         },
     secrets={
@@ -283,7 +298,13 @@ flux_runner = FluxRunner(
     values_filename='values-gc.yaml',
     with_values={
         "image": {
-            "tag": "0.0.2"
+            "tag": versions["FluxRunner"]
+            }
+        },
+    secrets={
+        "gitlab-docker": secrets_folder / "gitlab" / "gitlab-docker.yaml"
+        }
+    )
 
 network = Network(
     namespace='prod',
