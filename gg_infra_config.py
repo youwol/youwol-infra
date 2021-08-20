@@ -13,6 +13,7 @@ from youwol_infra.routers.k8s_dashboard.router import K8sDashboard
 from youwol_infra.routers.keycloak.router import Keycloak
 from youwol_infra.routers.kong.router import Kong
 from youwol_infra.routers.minio.router import Minio
+from youwol_infra.routers.network.router import Network
 from youwol_infra.routers.postgre_sql.router import PostgreSQL
 from youwol_infra.routers.redis.router import Redis
 from youwol_infra.routers.scylla.router import Scylla
@@ -283,6 +284,13 @@ flux_runner = FluxRunner(
     with_values={
         "image": {
             "tag": "0.0.2"
+
+network = Network(
+    namespace='prod',
+    values_filename='values-gc.yaml',
+    with_values={
+        "image": {
+            "tag": versions["Network"]
             }
         },
     secrets={
@@ -318,6 +326,7 @@ async def configuration():
             front_api,
             workspace_explorer,
             flux_builder,
-            flux_runner
+            flux_runner,
+            network
             ]
         )

@@ -4,27 +4,28 @@ from starlette.responses import JSONResponse
 from starlette.requests import Request
 from starlette.websockets import WebSocket
 
-import routers.environment.router as environment
-import routers.logs.router as logs
-import routers.k8s_dashboard.router as k8s_dashboard
-import routers.postgre_sql.router as postgre_sql
-import routers.kong.router as kong
-import routers.minio.router as minio
-import routers.scylla.router as scylla
-import routers.docdb.router as docdb
-import routers.storage.router as storage
-import routers.redis.router as redis
-import routers.cdn.router as cdn
-import routers.keycloak.router as keycloak
-import routers.treedb_backend.router as treedb_backend
-import routers.assets_backend.router as assets_backend
-import routers.assets_gateway.router as assets_gateway
-import routers.flux_backend.router as flux_backend
-import routers.front_api.router as front_api
-import routers.workspace_explorer.router as workspace_explorer
-import routers.flux_builder.router as flux_builder
-import routers.flux_runner.router as flux_runner
-import routers.common as helm
+import youwol_infra.routers.environment.router as environment
+import youwol_infra.routers.logs.router as logs
+import youwol_infra.routers.k8s_dashboard.router as k8s_dashboard
+import youwol_infra.routers.postgre_sql.router as postgre_sql
+import youwol_infra.routers.kong.router as kong
+import youwol_infra.routers.minio.router as minio
+import youwol_infra.routers.scylla.router as scylla
+import youwol_infra.routers.docdb.router as docdb
+import youwol_infra.routers.storage.router as storage
+import youwol_infra.routers.redis.router as redis
+import youwol_infra.routers.cdn.router as cdn
+import youwol_infra.routers.keycloak.router as keycloak
+import youwol_infra.routers.treedb_backend.router as treedb_backend
+import youwol_infra.routers.assets_backend.router as assets_backend
+import youwol_infra.routers.assets_gateway.router as assets_gateway
+import youwol_infra.routers.flux_backend.router as flux_backend
+import youwol_infra.routers.front_api.router as front_api
+import youwol_infra.routers.workspace_explorer.router as workspace_explorer
+import youwol_infra.routers.flux_builder.router as flux_builder
+import youwol_infra.routers.flux_runner.router as flux_runner
+import youwol_infra.routers.network.router as network
+import youwol_infra.routers.common as helm
 
 
 from youwol_infra.dynamic_configuration import dynamic_config
@@ -68,6 +69,7 @@ app.include_router(assets_gateway.router, prefix=configuration.base_path+"/asset
 app.include_router(front_api.router, prefix=configuration.base_path+"/front-api", tags=["front_api"])
 app.include_router(flux_builder.router, prefix=configuration.base_path+"/flux-builder", tags=["flux-builder"])
 app.include_router(flux_runner.router, prefix=configuration.base_path+"/flux-runner", tags=["flux-runner"])
+app.include_router(network.router, prefix=configuration.base_path+"/network", tags=["network"])
 app.include_router(workspace_explorer.router, prefix=configuration.base_path+"/workspace-explorer",
                    tags=["workspace-explorer"])
 app.include_router(helm.router, prefix=configuration.base_path+"/helm", tags=["Helm"])
