@@ -1,8 +1,10 @@
 import asyncio
+import glob
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import List, Mapping, Any
 
-import aiohttp
+from aiohttp import ClientSession
 from fastapi import APIRouter, WebSocket, Depends
 from pydantic import BaseModel
 from starlette.requests import Request
@@ -13,8 +15,8 @@ from youwol_infra.deployment_models import HelmPackage
 from youwol_infra.dynamic_configuration import dynamic_config, DynamicConfiguration
 from youwol_infra.routers.common import StatusBase, Sanity, HelmValues, install_pack, upgrade_pack
 from youwol_infra.service_configuration import Configuration
-from youwol_infra.utils.k8s_utils import k8s_create_secrets_if_needed, k8s_port_forward
-from youwol_infra.utils.utils import to_json_response, get_port_number, get_aiohttp_session
+from youwol_infra.utils.k8s_utils import k8s_port_forward
+from youwol_infra.utils.utils import to_json_response, get_port_number, get_aiohttp_session, parse_json
 from youwol_infra.web_sockets import WebSocketsStore, start_web_socket
 from youwol_utils import raise_exception_from_response, QueryBody
 
@@ -259,3 +261,109 @@ async def query_table(
                             }
 
                 await raise_exception_from_response(resp, url=url)
+
+
+class LocalTablesBody(BaseModel):
+    folder: str
+
+
+class LocalTable(BaseModel):
+    keyspace: str
+    name: str
+
+
+class LocalTablesResponse(BaseModel):
+    tables: List[LocalTable]
+
+
+@router.post("/local-tables", summary="list docdb tables in a local folder")
+async def local_tables(
+        body: LocalTablesBody
+        ):
+    paths_data = glob.glob(f'{body.folder}/**/data.json', recursive=True)
+    tables = [LocalTable(keyspace=path.split('/')[-3], name=path.split('/')[-2]) for path in paths_data]
+    return LocalTablesResponse(tables=tables)
+
+
+class SyncLocalTableBody(BaseModel):
+    folder: str
+    operationId: str
+    tables: List[LocalTable]
+
+
+def chunk(from_list: List[Any], chunk_size: int) -> List[List[Any]]:
+    n = chunk_size
+    final = [from_list[i * n:(i + 1) * n] for i in range((len(from_list) + n - 1) // n)]
+    return final
+
+
+@router.post("/{namespace}/sync-local-tables", summary="synchronize a provided list of local tables")
+async def sync_local_tables(
+        request: Request,
+        namespace: str,
+        body: SyncLocalTableBody,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+    context = Context(
+        request=request,
+        config=config,
+        web_socket=WebSocketsStore.logs
+        )
+    channel_ws = WebSocketsStore.ws
+
+    docdb = next(p for p in config.deployment_configuration.packages
+                 if p.name == DocDb.name and p.namespace == namespace)
+
+    def get_documents(folder_path: Path):
+        return parse_json(folder_path / 'data.json')['documents']
+
+    async def export_document(http_session: ClientSession, keyspace: str, table: str, document: Mapping[str, any]):
+        url = f"http://127.0.0.1:{docdb.docdb_port_fwd}/api/v0-alpha1/{keyspace}/{table}/document"
+        async with await http_session.post(url=url, json=document, params=params, headers=headers) as resp:
+            if resp.status == 201:
+                return
+            await raise_exception_from_response(resp, url=url)
+
+    async with context.start(
+            action=f"Synchronize local tables",
+            json={"namespace": namespace, "tables": body.json(), "folder": body.folder}
+            ) as ctx:
+        await channel_ws.send_json({
+            "topic": "Docdb.SyncLocalData",
+            "operationId": body.operationId,
+            "package": {"name": docdb.name, "namespace": docdb.namespace},
+            "progress": 0
+            })
+
+        access_token = await config.get_client_credentials(
+            client_id="youwol-dev",
+            scope="email profile youwol_dev",
+            context=ctx
+            )
+        headers = {"authorization": f"Bearer {access_token}"}
+        params = {"owner": "/youwol-users"}
+        all_documents = [(keyspace, table, doc)
+                         for keyspace in {t.keyspace for t in body.tables}
+                         for table in {t.name for t in body.tables if t.keyspace == keyspace}
+                         for doc in get_documents(Path(body.folder) / keyspace / table)
+                         ]
+        batches = chunk(all_documents, 5)
+        async with get_aiohttp_session() as session:
+            for index, batch in enumerate(batches):
+                await asyncio.gather(
+                    ctx.info(text=f'scylla => proceed batch {index}/{len(batches)}', json=batch),
+                    channel_ws.send_json({
+                        "topic": "Docdb.SyncLocalData",
+                        "operationId": body.operationId,
+                        "package": {"name": docdb.name, "namespace": docdb.namespace},
+                        "progress": index/len(batches)
+                        }),
+                    *[export_document(session, keyspace, table, doc) for keyspace, table, doc in batch]
+                    )
+        await channel_ws.send_json({
+            "topic": "Docdb.SyncLocalData",
+            "operationId": body.operationId,
+            "package": {"name": docdb.name, "namespace": docdb.namespace},
+            "progress": 1
+            })
+        return {}
