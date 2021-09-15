@@ -14,6 +14,7 @@ from youwol_infra.routers.keycloak.router import Keycloak
 from youwol_infra.routers.kong.router import Kong
 from youwol_infra.routers.minio.router import Minio
 from youwol_infra.routers.network.router import Network
+from youwol_infra.routers.network_backend.router import NetworkBackend
 from youwol_infra.routers.postgre_sql.router import PostgreSQL
 from youwol_infra.routers.redis.router import Redis
 from youwol_infra.routers.scylla.router import Scylla
@@ -41,6 +42,7 @@ versions = {
     "FluxBuilder": "0.0.10",
     "FluxRunner": "0.0.5",
     "Network": "0.0.1"
+    "NetworkBackend": "0.0.3"
     }
 
 
@@ -320,6 +322,26 @@ network = Network(
     )
 
 
+network_backend = NetworkBackend(
+    namespace='prod',
+    with_values={
+        "image": {
+            "repository": "registry.gitlab.com/youwol/platform/network-backend",
+            "tag": versions["NetworkBackend"]
+            },
+        "imagePullSecrets[0].name": "gitlab-docker",
+        "ingress": get_ingress(developers_only=True),
+        "keycloak": {
+            "host": open_id_host
+            },
+        },
+    secrets={
+        "youwol-auth": secrets_folder / "keycloak" / "youwol-auth.yaml",
+        "gitlab-docker": secrets_folder / "gitlab" / "gitlab-docker.yaml"
+        }
+    )
+
+
 async def configuration():
 
     return DeploymentConfiguration(
@@ -348,6 +370,7 @@ async def configuration():
             workspace_explorer,
             flux_builder,
             flux_runner,
-            network
+            network,
+            network_backend
             ]
         )
