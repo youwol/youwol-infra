@@ -70,6 +70,13 @@ kong = Kong(
     with_values={
          "proxy": {
              "loadBalancerIP": "104.199.0.92"
+             },
+         "ingressController": {
+             "image": {
+                 "repository": "kong/kubernetes-ingress-controller",
+                 "tag": "1.1"
+                 }
+
              }
          },
     acme_hosts=[
