@@ -23,8 +23,9 @@ class Sanity(Enum):
 
 
 class StatusBase(BaseModel):
+    topic = "status"
     installed: bool
-    package: Any # < this should be youwol_infra.deployment_models.Package
+    package: Any  # < this should be youwol_infra.deployment_models.Package
     sanity: Optional[Sanity]
     pending: bool
 
