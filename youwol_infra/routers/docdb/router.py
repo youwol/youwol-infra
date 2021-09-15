@@ -259,3 +259,25 @@ async def query_table(
                             }
 
                 await raise_exception_from_response(resp, url=url)
+
+
+class LocalTablesBody(BaseModel):
+    folder: str
+
+
+class LocalTable(BaseModel):
+    keyspace: str
+    name: str
+
+
+class LocalTablesResponse(BaseModel):
+    tables: List[LocalTable]
+
+
+@router.post("/local-tables", summary="list docdb tables in a local folder")
+async def local_tables(
+        body: LocalTablesBody
+        ):
+    paths_data = glob.glob(f'{body.folder}/**/data.json', recursive=True)
+    tables = [LocalTable(keyspace=path.split('/')[-3], name=path.split('/')[-2]) for path in paths_data]
+    return LocalTablesResponse(tables=tables)
