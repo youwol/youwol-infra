@@ -32,16 +32,16 @@ open_id_host = "gc.auth.youwol.com"
 versions = {
     "DocDb": "0.3.42",
     "Storage": "0.2.13",
-    "CDN": "0.2.12",
+    "CDN": "0.2.13",
     "TreedbBackend": "0.3.8",
     "AssetsBackend": "0.3.8",
     "FluxBackend": "0.1.10",
-    "AssetsGateway": "1.1.31",
+    "AssetsGateway": "1.1.32",
     "FrontApi": "0.1.8",
     "WorkspaceExplorer": "0.0.3",
-    "FluxBuilder": "0.0.10",
+    "FluxBuilder": "0.0.11-next",
     "FluxRunner": "0.0.5",
-    "Network": "0.0.1"
+    "Network": "0.0.3-next",
     "NetworkBackend": "0.0.3"
     }
 
