@@ -4,6 +4,7 @@ from youwol_infra.deployment_configuration import DeploymentConfiguration, Gener
 from youwol_infra.routers.assets_backend.router import AssetsBackend
 from youwol_infra.routers.assets_gateway.router import AssetsGateway
 from youwol_infra.routers.cdn.router import CDN
+from youwol_infra.routers.exhibition_halls.router import ExhibitionHalls
 from youwol_infra.routers.docdb.router import DocDb
 from youwol_infra.routers.flux_backend.router import FluxBackend
 from youwol_infra.routers.flux_builder.router import FluxBuilder
@@ -47,6 +48,7 @@ versions = {
     "NetworkBackend": "0.0.3"
     "Stories": "0.0.3-next",
     "StoriesBackend": "0.0.2",
+    "ExhibitionHalls": '0.0.0-next'
     }
 
 
@@ -385,6 +387,21 @@ stories_backend = StoriesBackend(
         "gitlab-docker": secrets_folder / "gitlab" / "gitlab-docker.yaml"
         }
     )
+
+exhibition_halls = ExhibitionHalls(
+    namespace='prod',
+    values_filename='values-gc.yaml',
+    with_values={
+        "image": {
+            "tag": versions["ExhibitionHalls"]
+            }
+        },
+    secrets={
+        "gitlab-docker": secrets_folder / "gitlab" / "gitlab-docker.yaml"
+        }
+    )
+
+
 async def configuration():
 
     return DeploymentConfiguration(
@@ -417,5 +434,6 @@ async def configuration():
             network_backend,
             stories,
             stories_backend,
+            exhibition_halls
             ]
         )

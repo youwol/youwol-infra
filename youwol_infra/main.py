@@ -28,6 +28,7 @@ import youwol_infra.routers.network.router as network
 import youwol_infra.routers.network_backend.router as network_backend
 import youwol_infra.routers.stories.router as stories
 import youwol_infra.routers.stories_backend.router as stories_backend
+import youwol_infra.routers.exhibition_halls.router as exhibition_halls
 import youwol_infra.routers.common as helm
 
 
@@ -76,6 +77,8 @@ app.include_router(network.router, prefix=configuration.base_path+"/network", ta
 app.include_router(network_backend.router, prefix=configuration.base_path+"/network-backend", tags=["network-backend"])
 app.include_router(stories.router, prefix=configuration.base_path+"/stories", tags=["stories"])
 app.include_router(stories_backend.router, prefix=configuration.base_path+"/stories-backend", tags=["stories-backend"])
+app.include_router(exhibition_halls.router, prefix=configuration.base_path+"/exhibition-halls",
+                   tags=["exhibition-halls"])
 app.include_router(workspace_explorer.router, prefix=configuration.base_path+"/workspace-explorer",
                    tags=["workspace-explorer"])
 app.include_router(helm.router, prefix=configuration.base_path+"/helm", tags=["Helm"])
