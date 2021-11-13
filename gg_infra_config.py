@@ -20,6 +20,7 @@ from youwol_infra.routers.redis.router import Redis
 from youwol_infra.routers.scylla.router import Scylla
 from youwol_infra.routers.storage.router import Storage
 from youwol_infra.routers.stories.router import Stories
+from youwol_infra.routers.stories_backend.router import StoriesBackend
 from youwol_infra.routers.treedb_backend.router import TreedbBackend
 from youwol_infra.routers.workspace_explorer.router import WorkspaceExplorer
 
@@ -45,6 +46,7 @@ versions = {
     "Network": "0.0.3-next",
     "NetworkBackend": "0.0.3"
     "Stories": "0.0.3-next",
+    "StoriesBackend": "0.0.2",
     }
 
 
@@ -365,6 +367,24 @@ stories = Stories(
     )
 
 
+stories_backend = StoriesBackend(
+    namespace='prod',
+    with_values={
+        "image": {
+            "repository": "registry.gitlab.com/youwol/platform/stories-backend",
+            "tag": versions["StoriesBackend"]
+            },
+        "imagePullSecrets[0].name": "gitlab-docker",
+        "ingress": get_ingress(developers_only=True),
+        "keycloak": {
+            "host": open_id_host
+            },
+        },
+    secrets={
+        "youwol-auth": secrets_folder / "keycloak" / "youwol-auth.yaml",
+        "gitlab-docker": secrets_folder / "gitlab" / "gitlab-docker.yaml"
+        }
+    )
 async def configuration():
 
     return DeploymentConfiguration(
@@ -396,5 +416,6 @@ async def configuration():
             network,
             network_backend,
             stories,
+            stories_backend,
             ]
         )
