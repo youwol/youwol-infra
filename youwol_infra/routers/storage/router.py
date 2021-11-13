@@ -113,3 +113,39 @@ async def upgrade(
         channel_ws=WebSocketsStore.ws,
         finally_action=lambda: status(request, namespace, config)
         )
+
+
+"""
+
+Some piece of code saved for latter use if auto-sync w/ local storage is needed
+
+@router.post("/{namespace}/sync-local-buckets", summary="synchronize a provided list of local bucket")
+async def sync_local_buckets(
+        request: Request,
+        namespace: str,
+        body: SyncLocalTableBody,
+        config: DynamicConfiguration = Depends(dynamic_config)
+        ):
+        
+    async def export_file(bucket: str, bucket_path: Path, file_path: Path):
+        storage_client = await config.get_storage_client(bucket_name=bucket, context=context)
+        name = file_path.relative_to(bucket_path)
+        await storage_client.post_object(path=name, content=file_path.read_bytes(), content_type="",
+                                         owner='/youwol-users')
+
+
+    async with context.start(action=f"Export databases") as ctx:
+
+        await ctx.info(step=ActionStep.RUNNING, content=f"Synchronise minio's documents")
+
+        buckets_path = [config.pathsBook.local_storage / name  for name in targets_databases]
+
+        all_files = [(bucket, bucket_path, Path(dirpath) / filename)
+                      for bucket, bucket_path in zip(targets_databases, buckets_path)
+                      for (dirpath, dirnames, filenames) in os.walk(bucket_path / 'youwol-users')
+                      for filename in filenames if isfile(Path(dirpath) / filename)]
+        
+         for index, (bucket, bucket_path, file_path) in enumerate(all_files[0:5]):
+             await ctx.info(step=ActionStep.RUNNING, content=f'storage => proceed file {index}/{len(all_files)}')
+             await export_file(bucket, bucket_path, file_path)
+"""
