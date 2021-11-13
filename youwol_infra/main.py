@@ -26,6 +26,7 @@ import youwol_infra.routers.flux_builder.router as flux_builder
 import youwol_infra.routers.flux_runner.router as flux_runner
 import youwol_infra.routers.network.router as network
 import youwol_infra.routers.network_backend.router as network_backend
+import youwol_infra.routers.stories.router as stories
 import youwol_infra.routers.common as helm
 
 
@@ -72,6 +73,7 @@ app.include_router(flux_builder.router, prefix=configuration.base_path+"/flux-bu
 app.include_router(flux_runner.router, prefix=configuration.base_path+"/flux-runner", tags=["flux-runner"])
 app.include_router(network.router, prefix=configuration.base_path+"/network", tags=["network"])
 app.include_router(network_backend.router, prefix=configuration.base_path+"/network-backend", tags=["network-backend"])
+app.include_router(stories.router, prefix=configuration.base_path+"/stories", tags=["stories"])
 app.include_router(workspace_explorer.router, prefix=configuration.base_path+"/workspace-explorer",
                    tags=["workspace-explorer"])
 app.include_router(helm.router, prefix=configuration.base_path+"/helm", tags=["Helm"])

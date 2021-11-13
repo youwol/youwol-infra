@@ -19,6 +19,7 @@ from youwol_infra.routers.postgre_sql.router import PostgreSQL
 from youwol_infra.routers.redis.router import Redis
 from youwol_infra.routers.scylla.router import Scylla
 from youwol_infra.routers.storage.router import Storage
+from youwol_infra.routers.stories.router import Stories
 from youwol_infra.routers.treedb_backend.router import TreedbBackend
 from youwol_infra.routers.workspace_explorer.router import WorkspaceExplorer
 
@@ -43,6 +44,7 @@ versions = {
     "FluxRunner": "0.0.5",
     "Network": "0.0.3-next",
     "NetworkBackend": "0.0.3"
+    "Stories": "0.0.3-next",
     }
 
 
@@ -349,6 +351,20 @@ network_backend = NetworkBackend(
     )
 
 
+stories = Stories(
+    namespace='prod',
+    values_filename='values-gc.yaml',
+    with_values={
+        "image": {
+            "tag": versions["Stories"]
+            }
+        },
+    secrets={
+        "gitlab-docker": secrets_folder / "gitlab" / "gitlab-docker.yaml"
+        }
+    )
+
+
 async def configuration():
 
     return DeploymentConfiguration(
@@ -378,6 +394,7 @@ async def configuration():
             flux_builder,
             flux_runner,
             network,
-            network_backend
+            network_backend,
+            stories,
             ]
         )
