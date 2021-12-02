@@ -15,6 +15,7 @@ import youwol_infra.routers.docdb.router as docdb
 import youwol_infra.routers.storage.router as storage
 import youwol_infra.routers.redis.router as redis
 import youwol_infra.routers.cdn.router as cdn
+import youwol_infra.routers.cdn_apps_server.router as cdn_apps_server
 import youwol_infra.routers.keycloak.router as keycloak
 import youwol_infra.routers.treedb_backend.router as treedb_backend
 import youwol_infra.routers.assets_backend.router as assets_backend
@@ -65,6 +66,8 @@ app.include_router(docdb.router, prefix=configuration.base_path+"/docdb", tags=[
 app.include_router(storage.router, prefix=configuration.base_path+"/storage", tags=["Storage"])
 app.include_router(redis.router, prefix=configuration.base_path+"/redis", tags=["Redis"])
 app.include_router(cdn.router, prefix=configuration.base_path+"/cdn", tags=["CDN"])
+app.include_router(cdn_apps_server.router, prefix=configuration.base_path+"/cdn-apps-server",
+                   tags=["CDN applications server"])
 app.include_router(keycloak.router, prefix=configuration.base_path+"/keycloak", tags=["keycloak"])
 app.include_router(treedb_backend.router, prefix=configuration.base_path+"/treedb-backend", tags=["treedb-backend"])
 app.include_router(assets_backend.router, prefix=configuration.base_path+"/assets-backend", tags=["assets-backend"])
