@@ -4,6 +4,7 @@ from youwol_infra.deployment_configuration import DeploymentConfiguration, Gener
 from youwol_infra.routers.assets_backend.router import AssetsBackend
 from youwol_infra.routers.assets_gateway.router import AssetsGateway
 from youwol_infra.routers.cdn.router import CDN
+from youwol_infra.routers.cdn_apps_server.router import CdnAppsServer
 from youwol_infra.routers.exhibition_halls.router import ExhibitionHalls
 from youwol_infra.routers.docdb.router import DocDb
 from youwol_infra.routers.flux_backend.router import FluxBackend
@@ -36,19 +37,20 @@ versions = {
     "DocDb": "0.3.42",
     "Storage": "0.2.13",
     "CDN": "0.2.14",
-    "TreedbBackend": "0.3.8",
+    "TreedbBackend": "0.3.9",
     "AssetsBackend": "0.3.8",
     "FluxBackend": "0.1.11",
-    "AssetsGateway": "1.1.35",
+    "AssetsGateway": "1.1.37",
     "FrontApi": "0.1.8",
-    "WorkspaceExplorer": "0.0.4",
-    "FluxBuilder": "0.0.12-next",
-    "FluxRunner": "0.0.6",
+    "WorkspaceExplorer": "0.1.1",
+    "FluxBuilder": "0.0.13-next",
+    "FluxRunner": "0.0.7",
     "Network": "0.0.3-next",
     "NetworkBackend": "0.0.3",
-    "Stories": "0.0.3-next",
+    "Stories": "0.0.4",
     "StoriesBackend": "0.0.2",
-    "ExhibitionHalls": '0.0.0-next'
+    "ExhibitionHalls": '0.0.2',
+    "CdnAppsServer": '0.0.1'
     }
 
 
@@ -401,6 +403,25 @@ exhibition_halls = ExhibitionHalls(
         }
     )
 
+cdn_apps_server = CdnAppsServer(
+    namespace='prod',
+    with_values={
+        "image": {
+            "repository": "registry.gitlab.com/youwol/platform/cdn-apps-server",
+            "tag": versions["CdnAppsServer"]
+            },
+        "imagePullSecrets[0].name": "gitlab-docker",
+        "ingress": get_ingress(developers_only=False),
+        "keycloak": {
+            "host": open_id_host
+            },
+        },
+    secrets={
+        "youwol-auth": secrets_folder / "keycloak" / "youwol-auth.yaml",
+        "gitlab-docker": secrets_folder / "gitlab" / "gitlab-docker.yaml"
+        }
+    )
+
 
 async def configuration():
 
@@ -434,6 +455,7 @@ async def configuration():
             network_backend,
             stories,
             stories_backend,
-            exhibition_halls
+            exhibition_halls,
+            cdn_apps_server
             ]
         )
